@@ -1,5 +1,5 @@
 [package]
-name = "blockchain-strategy-sim"
+name = "mining-sim"
 authors = ["Jude Muriithi <muriithi@princeton.edu>"]
 version = "0.1.0"
 edition = "2021"
@@ -7,3 +7,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+dyn-clone = "1.0.14"
+rand = "0.8"
+thiserror = "1"

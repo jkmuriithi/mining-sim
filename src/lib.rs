@@ -1,14 +1,19 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+/*!
+A library for simulating strategic blockchain mining outcomes based on
+game-theoretical models.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+## Todo:
+- Miner names (String field, &str getter, default "Miner X")
+- SM, NSM, N-Deficit Strategy Defs
+- Multi-threading in simulation runs, corresponding options in SimulationBuilder
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+## Issues:
+*/
+
+pub mod block;
+pub mod blockchain;
+pub mod miner;
+pub mod simulation;
+pub mod transaction;
+
+pub use simulation::create;
