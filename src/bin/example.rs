@@ -1,18 +1,19 @@
 use std::time::Instant;
 
-use mining_sim::miner::Honest;
+use mining_sim::miner::{ties::TieBreaker, Honest, Selfish};
 
 fn main() {
     let start = Instant::now();
 
     let simulation = mining_sim::create()
-        .average_of(5)
-        .rounds(100000)
-        .add_miner(Honest::new())
-        .add_miner(Honest::new())
-        .with_alphas([0.3, 0.7])
-        .with_equal_alphas()
-        .with_miner_alpha(1, 0.9)
+        .rounds(1000000)
+        .add_miner(Honest::with_tie_breaker(TieBreaker::FavorMinerProb(
+            2.into(),
+            0.4,
+        )))
+        .add_miner(Selfish::new())
+        .with_miner_alphas(2, (0..50).step_by(2).map(|n| n as f64 / 100.0))
+        // .with_miner_alphas(2, [0.44])
         .build()
         .unwrap();
 

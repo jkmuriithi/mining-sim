@@ -16,59 +16,61 @@ use crate::{
 /// CSV output. For custom measurements, the pub fields of this struct must be
 /// accessed  manually.
 pub struct SimulationResults {
+    /// The number of rounds in each simulation run.
+    pub rounds: u64,
     /// Number of simulation runs to be associated with a single data point.
     /// Must be at least 1.
-    pub average_of: usize,
-    /// Miners used in the corresponding simulation.
-    pub miners: Vec<Miner>,
-    /// Mining power distribution used in the corresponding simulation.
-    pub miner_alphas: Vec<Vec<f64>>,
-    /// Blocks mined by each miner in each run of the simulation.
-    pub miner_blocks: Vec<HashMap<MinerID, Vec<BlockID>>>,
+    pub average_of: u64,
     /// Blockchains resulting from each run of the corresponding simulation.
     pub chains: Vec<Blockchain>,
+    /// Miners used in the corresponding simulation.
+    pub miners: Vec<Box<dyn Miner>>,
+    /// Mining power distribution used in the corresponding simulation.
+    pub miner_alphas: Vec<Vec<f64>>,
+    /// Blocks published by each miner in each run of the simulation, in the
+    /// order that they were published.
+    pub miner_blocks: Vec<HashMap<MinerID, Vec<BlockID>>>,
     /// Accrued metrics
     metrics: Vec<VecDeque<Metric>>,
 }
 
-/// Metrics constructed within [SimulationResults].
+/// Metric types constructed within [SimulationResults].
 #[derive(Debug, Clone)]
 pub enum Metric {
-    Title(String),
-    Alpha(f64),
-    Revenue(f64),
+    Text(String),
+    Int(u64),
+    Float(f64),
 }
 
 impl Display for Metric {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            Metric::Title(s) => write!(f, "{}", s),
-            Metric::Alpha(a) => write!(f, "{:.6}", a),
-            Metric::Revenue(rev) => write!(f, "{:.6}", rev),
+            Metric::Text(t) => write!(f, "{}", t),
+            Metric::Int(i) => write!(f, "{}", i),
+            Metric::Float(fl) => write!(f, "{:.6}", fl),
         }
     }
 }
 
 impl SimulationResults {
     pub fn new(
-        average_of: usize,
-        miners: Vec<Miner>,
+        rounds: u64,
+        average_of: u64,
+        chains: Vec<Blockchain>,
+        miners: Vec<Box<dyn Miner>>,
         alphas: Vec<Vec<f64>>,
         blocks: Vec<HashMap<MinerID, Vec<BlockID>>>,
-        chains: Vec<Blockchain>,
     ) -> Self {
-        assert!(
-            average_of > 0,
-            "tried to build results with average_of == 0"
-        );
+        assert!(average_of > 0, "tried to build results with average_of == 0");
         assert!(!chains.is_empty(), "chains vec is empty");
         assert!(
-            chains.len() % average_of == 0,
+            chains.len() % average_of as usize == 0,
             "chains.len() and average_of do not agree"
         );
 
         let metrics = vec![VecDeque::new(); alphas.len() + 1];
         SimulationResults {
+            rounds,
             average_of,
             miners,
             miner_alphas: alphas,
@@ -85,7 +87,7 @@ impl SimulationResults {
 
         for miner in 0..self.miners.len() {
             self.metrics[0]
-                .push_back(Title(format!("Miner {} Revenue", miner + 1)));
+                .push_back(Text(format!("Miner {} Revenue", miner + 1)));
         }
 
         let mut run = 0;
@@ -116,7 +118,7 @@ impl SimulationResults {
 
             for average in averages {
                 self.metrics[row]
-                    .push_back(Revenue(average / self.average_of as f64))
+                    .push_back(Float(average / self.average_of as f64))
             }
         }
 
@@ -132,12 +134,23 @@ impl SimulationResults {
             for miner in (0..self.miners.len()).rev() {
                 if row == 0 {
                     self.metrics[row]
-                        .push_front(Title(format!("Miner {} Alpha", miner + 1)))
+                        .push_front(Text(format!("Miner {} Alpha", miner + 1)))
                 } else {
                     self.metrics[row]
-                        .push_front(Alpha(self.miner_alphas[row - 1][miner]))
+                        .push_front(Float(self.miner_alphas[row - 1][miner]))
                 }
             }
+        }
+
+        // Add metadata
+        self.metrics[0].push_back(Text("Averaged Runs Per Datum".into()));
+        self.metrics[1].push_back(Int(self.average_of));
+        self.metrics[0].push_back(Text("Number of Rounds Per Run".into()));
+        self.metrics[1].push_back(Int(self.rounds));
+        for miner in 0..self.miners.len() {
+            self.metrics[0]
+                .push_back(Text(format!("Miner {} Strategy", miner + 1)));
+            self.metrics[1].push_back(Text(self.miners[miner].name().into()));
         }
 
         SimulationData {
