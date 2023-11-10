@@ -26,8 +26,8 @@ Randomness](https://arxiv.org/abs/2107.04069)
 Making sure you have a working stable Rust install (with Cargo support), you
 should be able to build this crate locally as follows:
 ```bash
-git clone https://github.com/jkmuriithi/strategicmining.git
-cd strategicmining
+git clone https://github.com/jkmuriithi/strategicminer.git
+cd strategicminer
 cargo build
 ```
 
