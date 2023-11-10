@@ -14,13 +14,13 @@ use crate::{
 pub struct Blockchain {
     /// The genesis block of this blockchain.
     pub genesis: BlockID,
-    /// Height of the longest chain.
-    pub tip_height: u64,
-    /// All blocks of height `tip_height`, in the order they were published.
-    /// Always has length of at least 1.
-    pub tips: Vec<BlockID>,
+    /// Maximum height of any block on the chain.
+    pub max_height: u64,
     /// Map from the ID of a block to its associated data.
     blocks: HashMap<BlockID, BlockData>,
+    /// IDs of all blocks in the chain, sorted first by height, then by the
+    /// order in which they were published.
+    blocks_by_height: Vec<Vec<BlockID>>,
 }
 
 /// A block and its associated metadata as held within a [Blockchain] instance.
@@ -54,18 +54,14 @@ impl Blockchain {
         let genesis = Block::new(0.into(), None, 0.into(), None);
         let blocks = HashMap::from([(
             0.into(),
-            BlockData {
-                block: genesis,
-                height: 0,
-                children: vec![],
-            },
+            BlockData { block: genesis, height: 0, children: vec![] },
         )]);
 
         Blockchain {
-            blocks,
             genesis: 0.into(),
-            tips: vec![0.into()],
-            tip_height: 0,
+            max_height: 0,
+            blocks,
+            blocks_by_height: vec![vec![0.into()]],
         }
     }
 
@@ -98,15 +94,32 @@ impl Blockchain {
         self.blocks.get(&id).and_then(|opt| opt.block.parent)
     }
 
+    /// Returns the IDs of all blocks at the specified height.
+    ///
+    /// ## Panics
+    /// Panics if `index` is greater than [Blockchain::max_height].
+    #[inline]
+    pub fn at_height(&self, index: u64) -> &[BlockID] {
+        assert!(
+            index <= self.max_height,
+            "{} exceeds the maximum height {} of the chain",
+            index,
+            self.max_height
+        );
+        &self.blocks_by_height[index as usize]
+    }
+
     /// Returns the IDs of all blocks on the path from the given block ID to the
     /// genesis block, in ascending order of height and including the given
     /// block ID.
     /// ## Panics
     /// If a block with [BlockID] `id` is not present on the chain.
     pub fn ancestors_of(&self, id: BlockID) -> Vec<BlockID> {
-        if !self.contains(id) {
-            panic!("blockchain does not contain a block with ID: {:?}", id);
-        }
+        assert!(
+            self.contains(id),
+            "blockchain does not contain a block with ID: {:?}",
+            id
+        );
 
         let mut ancestors = vec![id];
 
@@ -125,7 +138,7 @@ impl Blockchain {
     /// earliest published block with height [Blockchain::tip_height].
     #[inline]
     pub fn longest_chain(&self) -> Vec<BlockID> {
-        self.ancestors_of(self.tips[0])
+        self.ancestors_of(self.blocks_by_height.last().unwrap()[0])
     }
 
     /// Adds the given block to the blockchain.
@@ -154,27 +167,29 @@ impl Blockchain {
 
         // Insert block
         let height = parent.height + 1;
-        match self.tip_height.cmp(&height) {
+        match self.max_height.cmp(&height) {
             Ordering::Less => {
-                self.tips.clear();
-                self.tips.push(block.id);
-                self.tip_height = height;
+                debug_assert!(height == self.max_height + 1);
+                self.blocks_by_height.push(vec![block.id]);
+                self.max_height = height;
             }
             Ordering::Equal => {
-                self.tips.push(block.id);
+                self.blocks_by_height.last_mut().unwrap().push(block.id);
             }
             _ => (),
         }
 
         let id = block.id;
-        let data = BlockData {
-            block,
-            height,
-            children: vec![],
-        };
+        let data = BlockData { block, height, children: vec![] };
         self.blocks.insert(id, data);
 
         Ok(())
+    }
+
+    /// Returns the IDs of all blocks at the tip of the longest chain.
+    #[inline]
+    pub fn tip(&self) -> &[BlockID] {
+        self.blocks_by_height.last().unwrap()
     }
 }
 
@@ -218,6 +233,6 @@ mod tests {
         let lc = chain.longest_chain();
 
         assert_eq!(lc.len(), 1);
-        assert_eq!(lc[0], chain.tips[0]);
+        assert_eq!(lc[0], chain.blocks_by_height[0][0]);
     }
 }

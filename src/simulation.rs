@@ -19,14 +19,14 @@ pub use results::SimulationResults;
 /// Runs a simulation of the blockchain mining game, according to the given
 /// parameters.
 pub struct Simulation {
-    /// Number of data points to collect. Must be at least 1.
-    average_of: usize,
-    /// Number of rounds the simulation will last for.
+    /// Number of runs to average over for each datum. Must be at least 1.
+    average_of: u64,
+    /// Number of rounds the simulation will last for. Must be at least 1.
     rounds: u64,
     /// All miners taking part in the simulation, sorted by
     /// [MinerID](crate::miner::MinerID). [Miner::get_action] will be called on
-    /// each miner in order by ID.
-    miners: Vec<Miner>,
+    /// each miner according to the order of this vector.
+    miners: Vec<Box<dyn Miner>>,
     /// Parallel array containing the mining power of each miner in
     /// [Simulation::miners].
     miner_alphas: Vec<Vec<f64>>,
@@ -57,11 +57,12 @@ impl Simulation {
         }
 
         SimulationResults::new(
+            self.rounds,
             self.average_of,
+            chains,
             self.miners,
             self.miner_alphas,
             miner_blocks,
-            chains,
         )
     }
 
@@ -82,11 +83,8 @@ impl Simulation {
 
             for m in miners.iter_mut() {
                 let miner = m.id();
-                let block = if miner == proposer {
-                    Some(r.into())
-                } else {
-                    None
-                };
+                let block =
+                    if miner == proposer { Some(r.into()) } else { None };
 
                 match m.get_action(&chain, block) {
                     Action::Wait => (),

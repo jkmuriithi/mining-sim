@@ -13,9 +13,9 @@ const F64_MARGIN: f64 = 1e-6;
 /// Builds a [Simulation].
 #[derive(Debug)]
 pub struct SimulationBuilder {
-    average_of: Option<usize>,
+    average_of: Option<u64>,
     rounds: Option<u64>,
-    miners: Vec<Miner>,
+    miners: Vec<Box<dyn Miner>>,
     alpha_dists: Vec<AlphaDist>,
     /// Incremented as miners are added
     curr_miner_id: u64,
@@ -56,6 +56,7 @@ impl SimulationBuilder {
             rounds: None,
             miners: vec![],
             alpha_dists: vec![],
+            // Account for genesis miner
             curr_miner_id: 1,
             chain: None,
         }
@@ -63,10 +64,9 @@ impl SimulationBuilder {
 
     /// Creates a new miner and adds it to the simulation, setting its [MinerID]
     /// to be (1 + the number of miners already added).    
-    pub fn add_miner<M: Into<Miner>>(mut self, miner: M) -> Self {
-        let mut miner = miner.into();
-        miner.set_id(self.curr_miner_id);
-        self.miners.push(miner);
+    pub fn add_miner<M: Miner + 'static>(mut self, mut miner: M) -> Self {
+        miner.set_id(self.curr_miner_id.into());
+        self.miners.push(Box::new(miner));
         self.curr_miner_id += 1;
 
         self
@@ -74,14 +74,10 @@ impl SimulationBuilder {
 
     /// Set the number of data points collected and averaged for the simulation
     /// run (default 1).
-    pub fn average_of(mut self, size: usize) -> Self {
-        if self.average_of.is_some() {
-            panic!("average_of cannot be set twice");
-        }
-        if size == 0 {
-            panic!("average size cannot be zero");
-        }
-        self.average_of = Some(size);
+    pub fn average_of(mut self, num: u64) -> Self {
+        assert!(self.average_of.is_none(), "average_of cannot be set twice");
+        assert_ne!(num, 0, "average size cannot be zero");
+        self.average_of = Some(num);
 
         self
     }
@@ -89,9 +85,7 @@ impl SimulationBuilder {
     /// Sets the initial blockchain state used in the simulation.
     /// ([Blockchain::default] used otherwise).
     pub fn blockchain(mut self, chain: Blockchain) -> Self {
-        if self.chain.is_some() {
-            panic!("blockchain cannot be set twice");
-        }
+        assert!(self.chain.is_some(), "blockchain cannot be set twice");
         self.chain = Some(chain);
 
         self
@@ -99,25 +93,27 @@ impl SimulationBuilder {
 
     /// Sets the number of rounds the simulation will last for (default 1).
     pub fn rounds(mut self, rounds: u64) -> Self {
-        if self.rounds.is_some() {
-            panic!("number of rounds cannot be set twice");
-        }
-        if rounds == 0 {
-            panic!("number of rounds cannot be zero");
-        }
+        assert!(self.rounds.is_none(), "number of rounds cannot be set twice");
+        assert_ne!(rounds, 0, "number of rounds cannot be zero");
         self.rounds = Some(rounds);
 
         self
     }
 
     /// Run the simulation such that the respective mining power of all miners
-    /// is equal to what's specified in `arr`.
-    pub fn with_alphas<const N: usize>(mut self, arr: [f64; N]) -> Self {
-        if f64::abs(arr.iter().sum::<f64>() - 1.0) > F64_MARGIN {
-            panic!("alphas must sum to 1.0");
+    /// is equal to what's specified by `values`.
+    pub fn with_alphas<I>(mut self, values: I) -> Self
+    where
+        I: IntoIterator<Item = f64>,
+    {
+        let mut alphas = vec![];
+        let mut sum = 0.0;
+        for val in values {
+            sum += val;
+            alphas.push(val);
         }
-        self.alpha_dists
-            .push(AlphaDist::SetMinerAlphas(arr.to_vec()));
+        assert!(sum - 1.0 < F64_MARGIN, "alphas must sum to 1.0",);
+        self.alpha_dists.push(AlphaDist::SetMinerAlphas(alphas));
 
         self
     }
@@ -130,19 +126,20 @@ impl SimulationBuilder {
         self
     }
 
-    /// Run the simulation such that the mining power of the specified miner is
-    /// equal to `alpha`, and mining power is distributed equally between all
-    /// other miners. `miner` is a 1-based index over the miners that are
-    /// added to this [SimulationBuilder], in the order of addition.
-    pub fn with_miner_alpha(mut self, miner: u64, alpha: f64) -> Self {
-        if miner == 0 {
-            panic!("miner indices start at 1");
+    /// Run the simulation once for each element of `values`, such that the
+    /// mining power of the given miner is as specified, and mining power is
+    /// distributed equally between all other miners. `miner` is a 1-based index
+    /// over the miners that are added to this [SimulationBuilder], in the order
+    /// of addition.
+    pub fn with_miner_alphas<I>(mut self, miner: u64, values: I) -> Self
+    where
+        I: IntoIterator<Item = f64>,
+    {
+        assert_ne!(miner, 0, "miner indices start at 1");
+        for val in values {
+            assert!((0.0..=1.0).contains(&val), "alphas must be in [0.0, 1.0]");
+            self.alpha_dists.push(AlphaDist::SetMinerAlpha(miner.into(), val));
         }
-        if !(0.0..=1.0).contains(&alpha) {
-            panic!("alpha must be in [0.0, 1.0]");
-        }
-        self.alpha_dists
-            .push(AlphaDist::SetMinerAlpha(miner.into(), alpha));
 
         self
     }
@@ -198,7 +195,7 @@ impl SimulationBuilder {
                 AlphaDist::SetMinerAlpha(id, alpha) => {
                     let other =
                         (1.0 - alpha) / n.checked_sub(1).unwrap() as f64;
-                    (0..n)
+                    (1..=n)
                         .map(|i| {
                             if id == MinerID::from(i as u64) {
                                 alpha
