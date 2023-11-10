@@ -27,7 +27,7 @@ Making sure you have a working stable Rust install (with Cargo support), you
 should be able to build this crate locally as follows:
 ```bash
 git clone https://github.com/jkmuriithi/strategicmining.git
-cd blockchain-strategy-sim
+cd strategicmining
 cargo build
 ```
 
