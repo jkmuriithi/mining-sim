@@ -14,13 +14,19 @@ research papers and theses.
 Randomness](https://arxiv.org/abs/2107.04069)
 
 ## Roadmap
-- TBD
+- ~~Create blockchain framework~~
+- ~~Create simulation framework and simulation builder interface~~
+- Implement known strategies
+  - ~~Honest~~
+  - ~~Selfish Mining~~
+  - Nothing At Stake
+  - N-Deficit
 
 ## Building Locally
 Making sure you have a working stable Rust install (with Cargo support), you
 should be able to build this crate locally as follows:
 ```bash
-git clone https://github.com/jkmuriithi/blockchain-strategy-sim.git
+git clone https://github.com/jkmuriithi/strategicmining.git
 cd blockchain-strategy-sim
 cargo build
 ```
