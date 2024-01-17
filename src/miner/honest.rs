@@ -18,11 +18,16 @@ pub struct Honest {
 
 impl Honest {
     pub fn new() -> Self {
-        Honest { ..Default::default() }
+        Honest {
+            ..Default::default()
+        }
     }
 
     pub fn with_tie_breaker(tie_breaker: TieBreaker) -> Self {
-        Honest { id: None, tie_breaker }
+        Honest {
+            id: None,
+            tie_breaker,
+        }
     }
 }
 
@@ -47,12 +52,12 @@ impl Miner for Honest {
         let id = self.id();
         match block {
             None => Action::Wait,
-            Some(block_id) => Action::Publish(Block::new(
-                block_id,
-                Some(self.tie_breaker.choose_tip(chain)),
-                id,
-                None,
-            )),
+            Some(block_id) => Action::Publish(Block {
+                id: block_id,
+                parent_id: Some(self.tie_breaker.choose(chain)),
+                miner_id: id,
+                txns: None,
+            }),
         }
     }
 }

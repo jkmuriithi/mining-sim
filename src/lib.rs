@@ -3,9 +3,11 @@ A library for simulating strategic blockchain mining outcomes based on
 game-theoretical models.
 
 ## Todo:
-- Miner names (String field, &str getter, default "Miner X")
-- SimulationBuilder::miner_alpha_range
-- SM, NSM, N-Deficit Strategy Defs
+- ~~Miner names (String field, &str getter, default "Miner X")~~
+- ~~SimulationBuilder::miner_alpha_range~~
+- ~~SM~~, NSM, N-Deficit Strategy Defs
+- Overhaul AlphaDist into a simulation::Distribution (methods values() and
+  validate())
 - Multi-threading in simulation runs, corresponding options in SimulationBuilder
 - Panic descriptions for builder methods
 - Variable renaming for clarity
@@ -33,4 +35,4 @@ pub mod miner;
 pub mod simulation;
 pub mod transaction;
 
-pub use simulation::create;
+pub use simulation::{SimulationBuilder, SimulationResults};

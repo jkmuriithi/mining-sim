@@ -14,19 +14,19 @@ use crate::{
 /// For analyzing built-in metrics, the appropriate methods and
 /// [SimulationResults::build_data] can be used to build [SimulationData] for
 /// CSV output. For custom measurements, the pub fields of this struct must be
-/// accessed  manually.
+/// accessed manually.
 pub struct SimulationResults {
     /// The number of rounds in each simulation run.
-    pub rounds: u64,
+    pub rounds: usize,
     /// Number of simulation runs to be associated with a single data point.
     /// Must be at least 1.
-    pub average_of: u64,
+    pub average_of: usize,
     /// Blockchains resulting from each run of the corresponding simulation.
     pub chains: Vec<Blockchain>,
     /// Miners used in the corresponding simulation.
     pub miners: Vec<Box<dyn Miner>>,
     /// Mining power distribution used in the corresponding simulation.
-    pub miner_alphas: Vec<Vec<f64>>,
+    pub power_dists: Vec<Vec<f64>>,
     /// Blocks published by each miner in each run of the simulation, in the
     /// order that they were published.
     pub miner_blocks: Vec<HashMap<MinerID, Vec<BlockID>>>,
@@ -38,7 +38,7 @@ pub struct SimulationResults {
 #[derive(Debug, Clone)]
 pub enum Metric {
     Text(String),
-    Int(u64),
+    Int(usize),
     Float(f64),
 }
 
@@ -54,17 +54,20 @@ impl Display for Metric {
 
 impl SimulationResults {
     pub fn new(
-        rounds: u64,
-        average_of: u64,
+        rounds: usize,
+        average_of: usize,
         chains: Vec<Blockchain>,
         miners: Vec<Box<dyn Miner>>,
         alphas: Vec<Vec<f64>>,
         blocks: Vec<HashMap<MinerID, Vec<BlockID>>>,
     ) -> Self {
-        assert!(average_of > 0, "tried to build results with average_of == 0");
+        assert!(
+            average_of > 0,
+            "tried to build results with average_of == 0"
+        );
         assert!(!chains.is_empty(), "chains vec is empty");
         assert!(
-            chains.len() % average_of as usize == 0,
+            chains.len() % average_of == 0,
             "chains.len() and average_of do not agree"
         );
 
@@ -73,7 +76,7 @@ impl SimulationResults {
             rounds,
             average_of,
             miners,
-            miner_alphas: alphas,
+            power_dists: alphas,
             miner_blocks: blocks,
             chains,
             metrics,
@@ -101,16 +104,17 @@ impl SimulationResults {
 
                 for (i, miner) in self.miners.iter().enumerate() {
                     let id = miner.id();
-                    let rev = self.miner_blocks[run].get(&id).map(|blocks| {
-                        let mut mined = 0.0;
-                        for block in blocks {
-                            if lc.contains(block) {
-                                mined += 1.0;
+                    let revenue =
+                        self.miner_blocks[run].get(&id).map(|blocks| {
+                            let mut mined = 0.0;
+                            for block in blocks {
+                                if lc.contains(block) {
+                                    mined += 1.0;
+                                }
                             }
-                        }
-                        mined / lc_len
-                    });
-                    averages[i] += rev.unwrap_or(0.0);
+                            mined / lc_len
+                        });
+                    averages[i] += revenue.unwrap_or(0.0);
                 }
 
                 run += 1;
@@ -137,7 +141,7 @@ impl SimulationResults {
                         .push_front(Text(format!("Miner {} Alpha", miner + 1)))
                 } else {
                     self.metrics[row]
-                        .push_front(Float(self.miner_alphas[row - 1][miner]))
+                        .push_front(Float(self.power_dists[row - 1][miner]))
                 }
             }
         }
@@ -150,7 +154,7 @@ impl SimulationResults {
         for miner in 0..self.miners.len() {
             self.metrics[0]
                 .push_back(Text(format!("Miner {} Strategy", miner + 1)));
-            self.metrics[1].push_back(Text(self.miners[miner].name().into()));
+            self.metrics[1].push_back(Text(self.miners[miner].name()));
         }
 
         SimulationData {

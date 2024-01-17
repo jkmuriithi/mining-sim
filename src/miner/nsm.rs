@@ -1,5 +1,7 @@
 //! Implementation of Nothing-at-Stake mining.
 
+use std::collections::VecDeque;
+
 use crate::{block::BlockID, blockchain::Blockchain, miner::MinerID};
 
 use super::{ties::TieBreaker, Action, Miner};
@@ -7,12 +9,13 @@ use super::{ties::TieBreaker, Action, Miner};
 #[derive(Debug, Default, Clone)]
 pub struct NothingAtStake {
     id: Option<MinerID>,
-    tie_breaker: TieBreaker,
+    tie_breaker: Option<TieBreaker>,
+    blocks: VecDeque<BlockID>,
 }
 
 impl NothingAtStake {
     pub fn new() -> Self {
-        NothingAtStake { id: None, tie_breaker: Default::default() }
+        Default::default()
     }
 }
 
@@ -23,6 +26,7 @@ impl Miner for NothingAtStake {
 
     fn set_id(&mut self, id: MinerID) {
         self.id = Some(id);
+        self.tie_breaker = Some(TieBreaker::FavorMiner(id));
     }
 
     fn get_action(
@@ -30,9 +34,8 @@ impl Miner for NothingAtStake {
         chain: &Blockchain,
         block: Option<BlockID>,
     ) -> Action {
-        assert!(self.id.is_some(), "Miner ID must be set");
-
-        let id = self.id.unwrap();
+        let id = self.id();
+        let tb = self.tie_breaker.unwrap();
 
         todo!()
     }

@@ -1,6 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, ops::Index};
-
-use thiserror::Error;
+use std::{collections::HashMap, ops::Index};
 
 use crate::{
     block::{Block, BlockID},
@@ -12,29 +10,26 @@ use crate::{
 /// via [Blockchain::publish].
 #[derive(Debug, Clone)]
 pub struct Blockchain {
-    /// The genesis block of this blockchain.
-    pub genesis: BlockID,
+    pub genesis_id: BlockID,
     /// Maximum height of any block on the chain.
-    pub max_height: u64,
-    /// Map from the ID of a block to its associated data.
+    pub max_height: usize,
     blocks: HashMap<BlockID, BlockData>,
-    /// IDs of all blocks in the chain, sorted first by height, then by the
-    /// order in which they were published.
+    /// IDs of all blocks in the chain, arranged in height order, and sorted by
+    /// the order in which they were published.
     blocks_by_height: Vec<Vec<BlockID>>,
 }
 
-/// A block and its associated metadata as held within a [Blockchain] instance.
-#[derive(Debug, Clone)]
+/// A block and its associated metadata as stored in a [Blockchain] instance.
+#[derive(Debug, Default, Clone)]
 pub struct BlockData {
     pub block: Block,
-    /// Length of the path from `block` to the genesis block of the blockchain.
-    pub height: u64,
+    pub height: usize,
     /// All blocks which directly point to `block`. Allows for more flexible
     /// traversal over the chain.
     pub children: Vec<BlockID>,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum BlockInsertionError {
     #[error("block does not contain a parent block ID")]
     NoParentGiven,
@@ -51,25 +46,27 @@ impl Blockchain {
     /// has [BlockID] 0, and is associated with an uninstantiated genesis miner
     /// with [MinerID] 0.
     pub fn new() -> Self {
-        let genesis = Block::new(0.into(), None, 0.into(), None);
-        let blocks = HashMap::from([(
-            0.into(),
-            BlockData { block: genesis, height: 0, children: vec![] },
-        )]);
+        // Default BlockData matches the genesis block's BlockData
+        let blocks = HashMap::from([(0, BlockData::default())]);
 
         Blockchain {
-            genesis: 0.into(),
+            genesis_id: 0,
             max_height: 0,
             blocks,
-            blocks_by_height: vec![vec![0.into()]],
+            blocks_by_height: vec![vec![0]],
         }
     }
 
     /// Creates a new blockchain containing a genesis block, in which the
-    /// genesis block contains a [MinerID] of `miner_id`.
+    /// genesis miner has [MinerID] `miner_id`.
     pub fn with_genesis_miner(miner_id: MinerID) -> Self {
         let mut chain = Self::new();
-        chain.blocks.get_mut(&chain.genesis).unwrap().block.miner = miner_id;
+        chain
+            .blocks
+            .get_mut(&chain.genesis_id)
+            .unwrap()
+            .block
+            .miner_id = miner_id;
 
         chain
     }
@@ -91,7 +88,7 @@ impl Blockchain {
     /// Returns the parent of the block with the given ID.
     #[inline]
     pub fn get_parent(&self, id: BlockID) -> Option<BlockID> {
-        self.blocks.get(&id).and_then(|opt| opt.block.parent)
+        self.blocks.get(&id).and_then(|opt| opt.block.parent_id)
     }
 
     /// Returns the IDs of all blocks at the specified height.
@@ -99,7 +96,7 @@ impl Blockchain {
     /// ## Panics
     /// Panics if `index` is greater than [Blockchain::max_height].
     #[inline]
-    pub fn at_height(&self, index: u64) -> &[BlockID] {
+    pub fn at_height(&self, index: usize) -> &[BlockID] {
         assert!(
             index <= self.max_height,
             "{} exceeds the maximum height {} of the chain",
@@ -112,6 +109,7 @@ impl Blockchain {
     /// Returns the IDs of all blocks on the path from the given block ID to the
     /// genesis block, in ascending order of height and including the given
     /// block ID.
+    ///
     /// ## Panics
     /// If a block with [BlockID] `id` is not present on the chain.
     pub fn ancestors_of(&self, id: BlockID) -> Vec<BlockID> {
@@ -124,7 +122,7 @@ impl Blockchain {
         let mut ancestors = vec![id];
 
         let mut curr = id;
-        while curr != self.genesis {
+        while curr != self.genesis_id {
             curr = self.get_parent(curr).unwrap();
             ancestors.push(curr);
         }
@@ -133,9 +131,9 @@ impl Blockchain {
         ancestors
     }
 
-    /// Returns the IDs of all blocks on the longest chain, in order from the
-    /// genesis block to the tip of the chain, where the tip of the chain is the
-    /// earliest published block with height [Blockchain::tip_height].
+    /// Returns the IDs of all blocks on the longest chain, where the tip of the
+    /// longest chain is defined as the earliest block published at
+    /// [Blockchain::max_height].
     #[inline]
     pub fn longest_chain(&self) -> Vec<BlockID> {
         self.ancestors_of(self.blocks_by_height.last().unwrap()[0])
@@ -149,39 +147,37 @@ impl Blockchain {
         if self.contains(block.id) {
             return Err(DuplicateBlockID);
         }
-        let parent = match block.parent {
+        let parent_data = match block.parent_id {
             None => return Err(NoParentGiven),
-            Some(parent) => {
-                if !self.contains(parent) {
-                    return Err(ParentNotFound);
-                } else {
-                    self.blocks.get_mut(&parent).unwrap()
-                }
-            }
+            Some(parent_id) => match self.blocks.get_mut(&parent_id) {
+                None => return Err(ParentNotFound),
+                Some(parent_data) => parent_data,
+            },
         };
 
-        if block <= parent.block {
+        if block <= parent_data.block {
             return Err(InvalidParent);
         }
-        parent.children.push(block.id);
+        parent_data.children.push(block.id);
 
         // Insert block
-        let height = parent.height + 1;
-        match self.max_height.cmp(&height) {
-            Ordering::Less => {
-                debug_assert!(height == self.max_height + 1);
-                self.blocks_by_height.push(vec![block.id]);
-                self.max_height = height;
-            }
-            Ordering::Equal => {
-                self.blocks_by_height.last_mut().unwrap().push(block.id);
-            }
-            _ => (),
+        let height = parent_data.height + 1;
+        if height > self.max_height {
+            debug_assert!(height == self.max_height + 1);
+            self.blocks_by_height.push(vec![block.id]);
+            self.max_height = height;
+        } else {
+            self.blocks_by_height[height].push(block.id);
         }
 
-        let id = block.id;
-        let data = BlockData { block, height, children: vec![] };
-        self.blocks.insert(id, data);
+        self.blocks.insert(
+            block.id,
+            BlockData {
+                block,
+                height,
+                children: vec![],
+            },
+        );
 
         Ok(())
     }
@@ -199,14 +195,6 @@ impl Default for Blockchain {
     }
 }
 
-impl Index<BlockID> for Blockchain {
-    type Output = BlockData;
-
-    fn index(&self, index: BlockID) -> &Self::Output {
-        self.blocks.index(&index)
-    }
-}
-
 impl Index<&BlockID> for Blockchain {
     type Output = BlockData;
 
@@ -215,11 +203,11 @@ impl Index<&BlockID> for Blockchain {
     }
 }
 
-impl Index<u64> for Blockchain {
+impl Index<BlockID> for Blockchain {
     type Output = BlockData;
 
-    fn index(&self, index: u64) -> &Self::Output {
-        self.blocks.index(&index.into())
+    fn index(&self, index: BlockID) -> &Self::Output {
+        self.blocks.index(&index)
     }
 }
 

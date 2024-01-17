@@ -1,0 +1,146 @@
+//! Definitions for the [PowerDistribution] struct.
+
+use crate::miner::MinerID;
+
+/// Numeric type used to represent mining power.
+pub type PowerValue = f64;
+
+/// Determines how mining power is distributed between miners during a
+/// simulation.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub enum PowerDistribution {
+    /// Weight each miner equally.
+    #[default]
+    Equal,
+    /// Set the specified miner's power to the given float in \[0, 1\], with
+    /// mining power distributed equally between all other miners.
+    SetMiner(MinerID, PowerValue),
+    /// Set all mining power values to those in the given vector.
+    SetValues(Vec<PowerValue>),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum PowerDistributionError {
+    #[error("distribution values sum to {0:.4}, not 1.0")]
+    BadDistributionSum(PowerValue),
+    #[error("power value {0} is not in the range 0.0..=1.0")]
+    BadPowerValue(PowerValue),
+    #[error("cannot set power for the genesis miner (MinerID 0)")]
+    SetPowerGenesisMiner,
+    #[error("cannot set power for invalid miner ID {0}")]
+    SetPowerBadMinerID(MinerID),
+    #[error("cannot set power for a single miner")]
+    SetPowerSingleMiner,
+    #[error("power distribution size {0} does not match miner count {1}")]
+    WrongNumMiners(usize, usize),
+    #[error("cannot create a distribution for zero miners")]
+    ZeroMinersGiven,
+}
+
+impl PowerDistribution {
+    /// Allowable difference between a distribution sum and 1.0.
+    const EPSILON_POWER: PowerValue = 1e-6;
+
+    #[inline]
+    pub fn is_valid(&self, num_miners: usize) -> bool {
+        self.validate(num_miners).is_ok()
+    }
+
+    pub fn validate(
+        &self,
+        num_miners: usize,
+    ) -> Result<(), PowerDistributionError> {
+        use PowerDistributionError::*;
+
+        if num_miners == 0 {
+            return Err(ZeroMinersGiven);
+        }
+
+        match &self {
+            Self::Equal => Ok(()),
+            Self::SetValues(dist) => {
+                if dist.len() != num_miners {
+                    return Err(WrongNumMiners(dist.len(), num_miners));
+                }
+
+                let mut sum = 0.0;
+                for &val in dist {
+                    if val.is_nan() || !(0.0..=1.0).contains(&val) {
+                        return Err(BadPowerValue(val));
+                    }
+                    sum += val;
+                }
+
+                if PowerValue::abs(sum - 1.0) > Self::EPSILON_POWER {
+                    return Err(BadDistributionSum(sum));
+                }
+
+                Ok(())
+            }
+            Self::SetMiner(miner_id, power) => {
+                if num_miners == 1 {
+                    return Err(SetPowerSingleMiner);
+                }
+
+                let miner_id = *miner_id;
+
+                if miner_id == 0 {
+                    return Err(SetPowerGenesisMiner);
+                }
+
+                if miner_id > num_miners {
+                    return Err(SetPowerBadMinerID(miner_id));
+                }
+
+                let power = *power;
+
+                if power.is_nan() || !(0.0..=1.0).contains(&power) {
+                    return Err(BadPowerValue(power));
+                }
+
+                Ok(())
+            }
+        }
+    }
+
+    pub fn values(
+        &self,
+        num_miners: usize,
+    ) -> Result<Vec<PowerValue>, PowerDistributionError> {
+        self.validate(num_miners)?;
+
+        Ok(self.values_unchecked(num_miners))
+    }
+
+    pub fn values_unchecked(&self, num_miners: usize) -> Vec<PowerValue> {
+        match &self {
+            Self::SetValues(dist) => dist.clone(),
+            Self::Equal => {
+                vec![1.0 / num_miners as PowerValue; num_miners]
+            }
+            Self::SetMiner(miner_id, power) => {
+                let other = (1.0 - power) / (num_miners - 1) as PowerValue;
+
+                let mut dist = Vec::with_capacity(num_miners);
+                for i in 1..=num_miners {
+                    dist.push(if i == *miner_id { *power } else { other });
+                }
+
+                dist
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::simulation::PowerDistribution;
+
+    #[test]
+    fn power_dist_equal_power() {
+        assert_eq!(
+            PowerDistribution::Equal.values_unchecked(4),
+            vec![0.25, 0.25, 0.25, 0.25]
+        )
+    }
+}

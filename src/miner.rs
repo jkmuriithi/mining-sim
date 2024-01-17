@@ -1,11 +1,13 @@
 //! Definitions for representations of blockchain miners.
 
 pub mod honest;
+pub mod kdeficit;
 pub mod nsm;
 pub mod selfish;
 pub mod ties;
 
 pub use honest::Honest;
+pub use kdeficit::KDeficit;
 pub use selfish::Selfish;
 
 use std::fmt::Debug;
@@ -17,33 +19,10 @@ use crate::{
     blockchain::Blockchain,
 };
 
-/// An action taken by a miner on the chain.
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum Action {
-    /// Don't publish any blocks.
-    Wait,
-    /// Publish the specified block.
-    Publish(Block),
-    /// Publish the specified set of blocks. The blocks given in this
-    /// action will be published in the given order in a
-    /// [Simulation](crate::simulation::Simulation), but no new parent-child
-    /// relationships will be created between them during this process.
-    PublishSet(Vec<Block>),
-}
+/// A miner's unique identifier.
+pub type MinerID = usize;
 
-/// A unique identifier assigned to each [Miner].
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct MinerID(u64);
-
-impl From<u64> for MinerID {
-    fn from(value: u64) -> Self {
-        MinerID(value)
-    }
-}
-
-/// A blockchain miner with some specific strategy. Maintains internal state
-/// relating to unpublished blocks, if necessary.
+/// A blockchain miner with some strategy.
 pub trait Miner: Debug + DynClone {
     /// Get this miner's [MinerID].
     ///
@@ -51,11 +30,8 @@ pub trait Miner: Debug + DynClone {
     /// Panics if this miner's ID has not been set using [Miner::set_id].
     fn id(&self) -> MinerID;
 
-    /// Set this miner's [MinerID]. Should be called before any other trait
-    /// methods.
-    ///
-    /// ## Panics
-    /// Panics when called more than once on a specific instance.
+    /// Set this miner's [MinerID]. This ID must be set before any other trait
+    /// methods are called.
     fn set_id(&mut self, id: MinerID);
 
     /// Get the action taken by this miner in this round. `block` is `Some` if
@@ -77,3 +53,14 @@ pub trait Miner: Debug + DynClone {
 }
 
 dyn_clone::clone_trait_object!(Miner);
+
+/// An action taken by a miner on the chain.
+#[derive(Debug, Clone)]
+pub enum Action {
+    Wait,
+    Publish(Block),
+    /// The blocks given in this action will be published in the given order,
+    /// but no parent-child relationships will be created between them during
+    /// this process.
+    PublishSet(Vec<Block>),
+}

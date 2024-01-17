@@ -10,18 +10,21 @@ use crate::{
 use super::{ties::TieBreaker, Action, Miner, MinerID};
 
 #[derive(Debug, Default, Clone)]
+
 pub struct Selfish {
     id: Option<MinerID>,
     tie_breaker: Option<TieBreaker>,
-    /// All blocks which are mined, but unpublished
-    private_chain: VecDeque<Block>,
-    /// The height of the highest block on the private chain
-    private_height: u64,
+    /// All blocks which are mined, but unpublished.
+    hidden_blocks: VecDeque<Block>,
+    /// Height of the highest block on the private chain.
+    private_height: usize,
 }
 
 impl Selfish {
     pub fn new() -> Self {
-        Selfish { ..Default::default() }
+        Selfish {
+            ..Default::default()
+        }
     }
 }
 
@@ -46,37 +49,37 @@ impl Miner for Selfish {
         block: Option<BlockID>,
     ) -> Action {
         if self.private_height < chain.max_height {
-            self.private_chain.clear();
+            self.hidden_blocks.clear();
         }
 
         match block {
             Some(block_id) => {
-                let parent = if self.private_chain.is_empty() {
-                    let p = self.tie_breaker.unwrap().choose_tip(chain);
+                let parent = if self.hidden_blocks.is_empty() {
+                    let p = self.tie_breaker.unwrap().choose(chain);
                     self.private_height = chain[p].height + 1;
                     p
                 } else {
                     self.private_height += 1;
-                    self.private_chain.back().unwrap().id
+                    self.hidden_blocks.back().unwrap().id
                 };
 
                 let id = self.id();
                 let tip = chain.tip();
-                let fork = tip.iter().any(|&b| chain[b].block.miner == id)
-                    && tip.iter().any(|&b| chain[b].block.miner != id);
+                let fork = tip.iter().any(|&b| chain[b].block.miner_id == id)
+                    && tip.iter().any(|&b| chain[b].block.miner_id != id);
 
                 let block = Block::new(block_id, Some(parent), id, None);
-                if fork && self.private_chain.is_empty() {
+                if fork && self.hidden_blocks.is_empty() {
                     Action::Publish(block)
                 } else {
-                    self.private_chain.push_back(block);
+                    self.hidden_blocks.push_back(block);
                     Action::Wait
                 }
             }
-            None => match self.private_chain.len() {
+            None => match self.hidden_blocks.len() {
                 0 => Action::Wait,
-                2 => Action::PublishSet(self.private_chain.drain(..).collect()),
-                _ => Action::Publish(self.private_chain.pop_front().unwrap()),
+                2 => Action::PublishSet(self.hidden_blocks.drain(..).collect()),
+                _ => Action::Publish(self.hidden_blocks.pop_front().unwrap()),
             },
         }
     }

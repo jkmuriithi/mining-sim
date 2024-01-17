@@ -20,7 +20,7 @@ pub enum TieBreaker {
     /// longest chain, searching for blocks at levels down to the given depth
     /// back from [Blockchain::max_height] If no such block exists, the earliest
     /// published tip block is used.
-    FavorMinerFork(MinerID, u64),
+    FavorMinerFork(MinerID, usize),
     /// Uses the earliest block published by the miner with the given ID, with
     /// the given probability. Otherwise, the earliest published block is
     /// returned.
@@ -30,24 +30,22 @@ pub enum TieBreaker {
 impl TieBreaker {
     /// Returns the block at the tip of this blockchain's longest chain
     /// in accordance with the tie breaking strategy.
-    pub fn choose_tip(&self, chain: &Blockchain) -> BlockID {
-        use TieBreaker::*;
-
+    pub fn choose(&self, chain: &Blockchain) -> BlockID {
         let tip = chain.tip();
         match &self {
-            EarliestPublished => tip[0],
-            FavorMiner(miner) => tip
+            Self::EarliestPublished => tip[0],
+            Self::FavorMiner(miner) => tip
                 .iter()
-                .find(|&b| chain[b].block.miner == *miner)
+                .find(|&b| chain[b].block.miner_id == *miner)
                 .copied()
                 .unwrap_or(tip[0]),
-            FavorMinerFork(miner, depth) => {
+            Self::FavorMinerFork(miner, depth) => {
                 let lowest = chain.max_height.saturating_sub(*depth);
                 for i in (lowest..=chain.max_height).rev() {
                     let curr = chain
                         .at_height(i)
                         .iter()
-                        .find(|&b| chain[b].block.miner == *miner)
+                        .find(|&b| chain[b].block.miner_id == *miner)
                         .copied();
 
                     if let Some(id) = curr {
@@ -57,14 +55,14 @@ impl TieBreaker {
 
                 tip[0]
             }
-            FavorMinerProb(miner, prob) => {
+            Self::FavorMinerProb(miner, prob) => {
                 let favored = tip
                     .iter()
-                    .find(|&&b| chain[b].block.miner == *miner)
+                    .find(|&&b| chain[b].block.miner_id == *miner)
                     .copied();
                 let not_favored = tip
                     .iter()
-                    .find(|&&b| chain[b].block.miner != *miner)
+                    .find(|&&b| chain[b].block.miner_id != *miner)
                     .copied();
 
                 match favored {

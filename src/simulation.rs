@@ -11,44 +11,39 @@ use crate::{
 };
 
 pub mod builder;
+pub mod power_dist;
 pub mod results;
 
-pub use builder::{create, SimulationBuilder};
+pub use builder::{SimulationBuildError, SimulationBuilder};
+pub use power_dist::{PowerDistribution, PowerDistributionError};
 pub use results::SimulationResults;
 
 /// Runs a simulation of the blockchain mining game, according to the given
 /// parameters.
+///
+/// ## Details
+/// [Miner::get_action] is called on each [Miner] instance based on their
+/// insertion order (the order they were added to the corresponding
+/// [SimulationBuilder]).
 pub struct Simulation {
-    /// Number of runs to average over for each datum. Must be at least 1.
-    average_of: u64,
-    /// Number of rounds the simulation will last for. Must be at least 1.
-    rounds: u64,
-    /// All miners taking part in the simulation, sorted by
-    /// [MinerID](crate::miner::MinerID). [Miner::get_action] will be called on
-    /// each miner according to the order of this vector.
+    rounds: usize,
+    average_of: usize,
     miners: Vec<Box<dyn Miner>>,
-    /// Parallel array containing the mining power of each miner in
-    /// [Simulation::miners].
-    miner_alphas: Vec<Vec<f64>>,
-    /// Initial blockchain state used in the simulation.
-    chain: Blockchain,
+    power_dists: Vec<Vec<f64>>,
+    initial_blockchain: Option<Blockchain>,
 }
 
 impl Simulation {
-    /// Runs the configured simnulation and returns results.
-    ///
-    /// ## Details
-    /// [Miner::get_action] is called on each [Miner] instance based on their
-    /// insertion order (the order they were added to the corresponding
-    /// [SimulationBuilder]).
-    pub fn run(mut self) -> SimulationResults {
+    /// Runs the simulation with all configured power distributions.
+    pub fn run_all(mut self) -> SimulationResults {
         let mut rng = rand::thread_rng();
         let mut chains = vec![];
         let mut miner_blocks = vec![];
 
-        for i in 0..self.miner_alphas.len() {
+        for i in 0..self.power_dists.len() {
             // Construct probability distribution from miner weights
-            let dist = WeightedIndex::new(&self.miner_alphas[i]).unwrap();
+            println!("{:?}", self.power_dists[i]);
+            let dist = WeightedIndex::new(&self.power_dists[i]).unwrap();
             for _ in 0..self.average_of {
                 let run = self.run_single(&dist, &mut rng);
                 chains.push(run.0);
@@ -56,12 +51,19 @@ impl Simulation {
             }
         }
 
+        let Simulation {
+            rounds,
+            average_of,
+            miners,
+            power_dists,
+            ..
+        } = self;
         SimulationResults::new(
-            self.rounds,
-            self.average_of,
+            rounds,
+            average_of,
             chains,
-            self.miners,
-            self.miner_alphas,
+            miners,
+            power_dists,
             miner_blocks,
         )
     }
@@ -73,33 +75,28 @@ impl Simulation {
         dist: &WeightedIndex<f64>,
         rng: &mut ThreadRng,
     ) -> (Blockchain, HashMap<MinerID, Vec<BlockID>>) {
-        // Clone initial state
-        let mut chain = self.chain.clone();
+        let mut chain = self.initial_blockchain.clone().unwrap_or_default();
         let mut miners = self.miners.clone();
 
-        let mut miner_blocks = HashMap::new();
+        let mut miner_blocks: HashMap<MinerID, Vec<BlockID>> = HashMap::new();
         for r in 1..=self.rounds {
-            let proposer = ((dist.sample(rng) + 1) as u64).into();
+            let proposer = dist.sample(rng) + 1;
 
             for m in miners.iter_mut() {
                 let miner = m.id();
-                let block =
-                    if miner == proposer { Some(r.into()) } else { None };
+                let block = if miner == proposer { Some(r) } else { None };
 
                 match m.get_action(&chain, block) {
                     Action::Wait => (),
                     Action::Publish(block) => {
-                        miner_blocks
-                            .entry(miner)
-                            .or_insert(vec![])
-                            .push(block.id);
+                        miner_blocks.entry(miner).or_default().push(block.id);
                         chain.publish(block).expect("valid block");
                     }
                     Action::PublishSet(blocks) => {
                         for block in blocks {
                             miner_blocks
                                 .entry(miner)
-                                .or_insert(vec![])
+                                .or_default()
                                 .push(block.id);
                             chain.publish(block).expect("valid block");
                         }

@@ -1,37 +1,30 @@
 use crate::{miner::MinerID, transaction::Transaction};
 
+/// A block's unique identifier.
+pub type BlockID = usize;
+
 /// Representation of a mined block of transactions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Block {
-    /// The round this block's parent was mined in.
-    pub parent: Option<BlockID>,
-    /// The round this block was mined in.
     pub id: BlockID,
-    /// The miner of this block.
-    pub miner: MinerID,
-    /// The transactions contained within this block.
+    pub parent_id: Option<BlockID>,
+    pub miner_id: MinerID,
     pub txns: Option<Vec<Transaction>>,
-}
-
-/// A unique identifier assigned to each [Block]. Directly corresponds to the
-/// round that a block was mined in.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct BlockID(u64);
-
-impl From<u64> for BlockID {
-    fn from(value: u64) -> Self {
-        BlockID(value)
-    }
 }
 
 impl Block {
     pub fn new(
         id: BlockID,
-        parent: Option<BlockID>,
-        miner: MinerID,
+        parent_id: Option<BlockID>,
+        miner_id: MinerID,
         txns: Option<Vec<Transaction>>,
     ) -> Self {
-        Block { parent, id, miner, txns }
+        Block {
+            id,
+            parent_id,
+            miner_id,
+            txns,
+        }
     }
 }
 
