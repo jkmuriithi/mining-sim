@@ -26,11 +26,11 @@ pub enum PowerDistributionError {
     #[error("power value {0} is not in the range 0.0..=1.0")]
     BadPowerValue(PowerValue),
     #[error("cannot set power for the genesis miner (MinerID 0)")]
-    SetPowerGenesisMiner,
+    SetMinerGenesisMiner,
     #[error("cannot set power for invalid miner ID {0}")]
-    SetPowerBadMinerID(MinerID),
+    SetMinerBadMinerID(MinerID),
     #[error("cannot set power for a single miner")]
-    SetPowerSingleMiner,
+    SetMinerSingleMiner,
     #[error("power distribution size {0} does not match miner count {1}")]
     WrongNumMiners(usize, usize),
     #[error("cannot create a distribution for zero miners")]
@@ -79,17 +79,17 @@ impl PowerDistribution {
             }
             Self::SetMiner(miner_id, power) => {
                 if num_miners == 1 {
-                    return Err(SetPowerSingleMiner);
+                    return Err(SetMinerSingleMiner);
                 }
 
                 let miner_id = *miner_id;
 
                 if miner_id == 0 {
-                    return Err(SetPowerGenesisMiner);
+                    return Err(SetMinerGenesisMiner);
                 }
 
                 if miner_id > num_miners {
-                    return Err(SetPowerBadMinerID(miner_id));
+                    return Err(SetMinerBadMinerID(miner_id));
                 }
 
                 let power = *power;

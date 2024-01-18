@@ -30,15 +30,15 @@ pub struct BlockData {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum BlockInsertionError {
-    #[error("block does not contain a parent block ID")]
-    NoParentGiven,
-    #[error("block's parent was not found in this chain")]
-    ParentNotFound,
-    #[error("block's parent was mined in the same or later round")]
-    InvalidParent,
-    #[error("block ID already exists on this chain")]
-    DuplicateBlockID,
+pub enum BlockPublishingError {
+    #[error("block {0} does not contain a parent block ID")]
+    NoParentGiven(BlockID),
+    #[error("block {child}'s parent {parent} was not found in this chain")]
+    ParentNotFound { child: BlockID, parent: BlockID },
+    #[error("block {child} cannot have block {parent} as its parent")]
+    InvalidParent { child: BlockID, parent: BlockID },
+    #[error("block ID {0} already exists on this chain")]
+    DuplicateBlockID(BlockID),
 }
 
 impl Blockchain {
@@ -140,24 +140,38 @@ impl Blockchain {
     }
 
     /// Adds the given block to the blockchain.
-    pub fn publish(&mut self, block: Block) -> Result<(), BlockInsertionError> {
-        use BlockInsertionError::*;
+    pub fn publish(
+        &mut self,
+        block: Block,
+    ) -> Result<(), BlockPublishingError> {
+        use BlockPublishingError::*;
 
-        // Validate block
         if self.contains(block.id) {
-            return Err(DuplicateBlockID);
+            return Err(DuplicateBlockID(block.id));
         }
-        let parent_data = match block.parent_id {
-            None => return Err(NoParentGiven),
-            Some(parent_id) => match self.blocks.get_mut(&parent_id) {
-                None => return Err(ParentNotFound),
-                Some(parent_data) => parent_data,
-            },
+
+        let parent_id = match block.parent_id {
+            Some(parent_id) => parent_id,
+            None => return Err(NoParentGiven(block.id)),
         };
 
-        if block <= parent_data.block {
-            return Err(InvalidParent);
+        let parent_data = match self.blocks.get_mut(&parent_id) {
+            Some(parent_data) => parent_data,
+            None => {
+                return Err(ParentNotFound {
+                    child: block.id,
+                    parent: parent_id,
+                })
+            }
+        };
+
+        if block.id <= parent_data.block.id {
+            return Err(InvalidParent {
+                child: block.id,
+                parent: parent_id,
+            });
         }
+
         parent_data.children.push(block.id);
 
         // Insert block

@@ -21,6 +21,9 @@ game-theoretical models.
     - Can we tell when a strategy is "excessively patient"?
       (Or use a flag to let users know when that's a problem)
 
+- Split Simulation into two structs (Simulation and SimulationSet)
+- Revise results - move CSV output to a function and make Display "pretty-print"
+a table
 ## Issues:
 
 ## Important Tests (Conversation with Weinberg):

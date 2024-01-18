@@ -9,6 +9,18 @@ use crate::{
     miner::{Miner, MinerID},
 };
 
+use super::{power_dist::PowerValue, PowerDistribution};
+
+/// Contains the output data from a [Simulation](super::Simulation).
+#[derive(Debug, Clone)]
+pub struct SimulationOutput {
+    pub blockchain: Blockchain,
+    pub blocks_by_miner: HashMap<MinerID, Vec<BlockID>>,
+    pub miners: Vec<Box<dyn Miner>>,
+    pub power_dist: PowerDistribution,
+    pub rounds: usize,
+}
+
 /// Allows for analysis of results from a [Simulation](super::Simulation).
 ///
 /// For analyzing built-in metrics, the appropriate methods and
@@ -26,7 +38,7 @@ pub struct SimulationResults {
     /// Miners used in the corresponding simulation.
     pub miners: Vec<Box<dyn Miner>>,
     /// Mining power distribution used in the corresponding simulation.
-    pub power_dists: Vec<Vec<f64>>,
+    pub power_dists: Vec<Vec<PowerValue>>,
     /// Blocks published by each miner in each run of the simulation, in the
     /// order that they were published.
     pub miner_blocks: Vec<HashMap<MinerID, Vec<BlockID>>>,
@@ -39,7 +51,7 @@ pub struct SimulationResults {
 pub enum Metric {
     Text(String),
     Int(usize),
-    Float(f64),
+    Float(PowerValue),
 }
 
 impl Display for Metric {
@@ -58,7 +70,7 @@ impl SimulationResults {
         average_of: usize,
         chains: Vec<Blockchain>,
         miners: Vec<Box<dyn Miner>>,
-        alphas: Vec<Vec<f64>>,
+        alphas: Vec<Vec<PowerValue>>,
         blocks: Vec<HashMap<MinerID, Vec<BlockID>>>,
     ) -> Self {
         assert!(
@@ -100,7 +112,7 @@ impl SimulationResults {
             for _ in 0..self.average_of {
                 let lc: HashSet<BlockID> =
                     HashSet::from_iter(self.chains[run].longest_chain());
-                let lc_len = lc.len() as f64;
+                let lc_len = lc.len() as PowerValue;
 
                 for (i, miner) in self.miners.iter().enumerate() {
                     let id = miner.id();
@@ -122,7 +134,7 @@ impl SimulationResults {
 
             for average in averages {
                 self.metrics[row]
-                    .push_back(Float(average / self.average_of as f64))
+                    .push_back(Float(average / self.average_of as PowerValue))
             }
         }
 

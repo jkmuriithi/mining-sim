@@ -1,5 +1,4 @@
-//! Implementation of the HONEST (or FRONTIER) mining strategy via the
-//! [Strategy] trait.
+//! Implementation of the Honest (or Frontier) mining strategy.
 
 use crate::{
     block::{Block, BlockID},
@@ -18,9 +17,7 @@ pub struct Honest {
 
 impl Honest {
     pub fn new() -> Self {
-        Honest {
-            ..Default::default()
-        }
+        Self::default()
     }
 
     pub fn with_tie_breaker(tie_breaker: TieBreaker) -> Self {
@@ -49,15 +46,15 @@ impl Miner for Honest {
         chain: &Blockchain,
         block: Option<BlockID>,
     ) -> Action {
-        let id = self.id();
+        let miner_id = self.id();
         match block {
-            None => Action::Wait,
             Some(block_id) => Action::Publish(Block {
                 id: block_id,
                 parent_id: Some(self.tie_breaker.choose(chain)),
-                miner_id: id,
+                miner_id,
                 txns: None,
             }),
+            None => Action::Wait,
         }
     }
 }

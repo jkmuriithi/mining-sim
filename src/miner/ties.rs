@@ -5,74 +5,73 @@ use rand::Rng;
 use crate::{block::BlockID, blockchain::Blockchain, miner::MinerID};
 
 /// Determines how a [Miner](super::Miner) implementation breaks ties
-/// between blocks of height [Blockchain::tip_height].
+/// if there are multiple blocks of the same height at the end of a
+/// [Blockchain].
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum TieBreaker {
-    /// Always uses the earliest published block (the first element of
-    /// [Blockchain::tips]).
+    /// Use the block published in the earliest round.
     #[default]
     EarliestPublished,
-    /// Uses the earliest published block by the miner with the given ID. If no
-    /// such block exists in [Blockchain::tips], the earliest published block is
-    /// returned.
+    /// Use the earliest block published by the specified miner, if such a block
+    /// exists. Otherwise, use the earliest block published by any miner.
     FavorMiner(MinerID),
-    /// Uses the earliest published block by the miner with the given ID in the
-    /// longest chain, searching for blocks at levels down to the given depth
-    /// back from [Blockchain::max_height] If no such block exists, the earliest
-    /// published tip block is used.
-    FavorMinerFork(MinerID, usize),
-    /// Uses the earliest block published by the miner with the given ID, with
-    /// the given probability. Otherwise, the earliest published block is
-    /// returned.
+    /// With the given probability, use the earliest block published by the
+    /// specified miner, if such a block exists. Otherwise, use the earliest
+    /// block published by any *other* miner.
     FavorMinerProb(MinerID, f64),
 }
 
 impl TieBreaker {
-    /// Returns the block at the tip of this blockchain's longest chain
-    /// in accordance with the tie breaking strategy.
-    pub fn choose(&self, chain: &Blockchain) -> BlockID {
-        let tip = chain.tip();
+    /// Returns the block at the tip of the longest chain in `blockchain`,
+    /// breaking ties as specified.
+    pub fn choose(&self, blockchain: &Blockchain) -> BlockID {
+        let tip = blockchain.tip();
+
         match &self {
             Self::EarliestPublished => tip[0],
-            Self::FavorMiner(miner) => tip
-                .iter()
-                .find(|&b| chain[b].block.miner_id == *miner)
-                .copied()
-                .unwrap_or(tip[0]),
-            Self::FavorMinerFork(miner, depth) => {
-                let lowest = chain.max_height.saturating_sub(*depth);
-                for i in (lowest..=chain.max_height).rev() {
-                    let curr = chain
-                        .at_height(i)
-                        .iter()
-                        .find(|&b| chain[b].block.miner_id == *miner)
-                        .copied();
+            Self::FavorMiner(miner_id) => {
+                let block_id = tip
+                    .iter()
+                    .find(|&block_id| {
+                        blockchain[block_id].block.miner_id.eq(miner_id)
+                    })
+                    .copied();
 
-                    if let Some(id) = curr {
-                        return id;
-                    }
+                match block_id {
+                    Some(block_id) => block_id,
+                    None => tip[0],
                 }
-
-                tip[0]
             }
-            Self::FavorMinerProb(miner, prob) => {
+            Self::FavorMinerProb(miner_id, prob) => {
+                assert!(
+                    (0.0..=1.0).contains(prob),
+                    "probability must be between 0 and 1"
+                );
+
                 let favored = tip
                     .iter()
-                    .find(|&&b| chain[b].block.miner_id == *miner)
+                    .find(|&block_id| {
+                        blockchain[block_id].block.miner_id.eq(miner_id)
+                    })
                     .copied();
                 let not_favored = tip
                     .iter()
-                    .find(|&&b| chain[b].block.miner_id != *miner)
+                    .find(|&block_id| {
+                        !blockchain[block_id].block.miner_id.eq(miner_id)
+                    })
                     .copied();
 
-                match favored {
-                    None => not_favored.unwrap(),
-                    Some(id) => {
-                        if rand::thread_rng().gen_range(0.0..1.0) < *prob {
-                            id
+                match (favored, not_favored) {
+                    (Some(block_id), None) | (None, Some(block_id)) => block_id,
+                    (Some(favored), Some(not_favored)) => {
+                        if rand::thread_rng().gen_bool(*prob) {
+                            favored
                         } else {
-                            not_favored.unwrap_or(id)
+                            not_favored
                         }
+                    }
+                    (None, None) => {
+                        unreachable!("blockchain tip cannot be empty")
                     }
                 }
             }
