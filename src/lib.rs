@@ -38,4 +38,4 @@ pub mod miner;
 pub mod simulation;
 pub mod transaction;
 
-pub use simulation::{SimulationBuilder, SimulationResults};
+pub use simulation::SimulationBuilder;

@@ -21,9 +21,9 @@ pub enum PowerDistribution {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PowerDistributionError {
-    #[error("distribution values sum to {0:.4}, not 1.0")]
+    #[error("distribution values sum to {0:.6}, not 1.0")]
     BadDistributionSum(PowerValue),
-    #[error("power value {0} is not in the range 0.0..=1.0")]
+    #[error("power value {0:.6} is not in the range 0.0..=1.0")]
     BadPowerValue(PowerValue),
     #[error("cannot set power for the genesis miner (MinerID 0)")]
     SetMinerGenesisMiner,
@@ -63,14 +63,13 @@ impl PowerDistribution {
                     return Err(WrongNumMiners(dist.len(), num_miners));
                 }
 
-                let mut sum = 0.0;
-                for &val in dist {
-                    if val.is_nan() || !(0.0..=1.0).contains(&val) {
-                        return Err(BadPowerValue(val));
-                    }
-                    sum += val;
+                if let Some(&val) =
+                    dist.iter().find(|&x| x.is_nan() || !(0.0..1.0).contains(x))
+                {
+                    return Err(BadPowerValue(val));
                 }
 
+                let sum = dist.iter().sum();
                 if PowerValue::abs(sum - 1.0) > Self::EPSILON_POWER {
                     return Err(BadDistributionSum(sum));
                 }
@@ -93,12 +92,39 @@ impl PowerDistribution {
                 }
 
                 let power = *power;
-
                 if power.is_nan() || !(0.0..=1.0).contains(&power) {
                     return Err(BadPowerValue(power));
                 }
 
                 Ok(())
+            }
+        }
+    }
+
+    pub fn power_of(
+        &self,
+        miner_id: MinerID,
+        num_miners: usize,
+    ) -> Result<PowerValue, PowerDistributionError> {
+        self.validate(num_miners)?;
+
+        Ok(self.power_of_unchecked(num_miners, miner_id))
+    }
+
+    pub fn power_of_unchecked(
+        &self,
+        miner_id: MinerID,
+        num_miners: usize,
+    ) -> PowerValue {
+        match &self {
+            Self::SetValues(dist) => dist[miner_id],
+            Self::Equal => 1.0 / num_miners as PowerValue,
+            Self::SetMiner(id, power) => {
+                if miner_id == *id {
+                    *power
+                } else {
+                    (1.0 - power) / (num_miners - 1) as PowerValue
+                }
             }
         }
     }

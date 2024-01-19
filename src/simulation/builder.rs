@@ -14,7 +14,7 @@ use super::{
 pub struct SimulationBuilder {
     pub initial_blockchain: Option<Blockchain>,
     pub power_dists: Vec<PowerDistribution>,
-    pub repeat_each: Option<usize>,
+    pub repeat_all: Option<usize>,
     pub rounds: Option<usize>,
     last_assigned_miner_id: MinerID,
     miners: Vec<Box<dyn Miner>>,
@@ -48,8 +48,8 @@ impl SimulationBuilder {
     }
 
     /// Run each configured simulation `num` times.
-    pub fn repeat_each(mut self, num: usize) -> Self {
-        self.repeat_each = Some(num);
+    pub fn repeat_all(mut self, num: usize) -> Self {
+        self.repeat_all = Some(num);
 
         self
     }
@@ -130,7 +130,7 @@ impl SimulationBuilder {
         use SimulationBuildError::*;
 
         let SimulationBuilder {
-            repeat_each,
+            repeat_all: repeat_each,
             rounds,
             mut power_dists,
             initial_blockchain,

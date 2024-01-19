@@ -16,19 +16,21 @@ pub mod results;
 
 pub use builder::{SimulationBuildError, SimulationBuilder};
 pub use power_dist::{PowerDistribution, PowerDistributionError};
-pub use results::{SimulationOutput, SimulationResults};
 
+use results::SimulationOutput;
+
+/// Container for a group of simulations, which can be
 #[derive(Debug, Clone)]
 pub struct SimulationGroup {
     sims: Vec<Simulation>,
-    repeat_each: usize,
+    repeat_all: usize,
 }
 
 impl SimulationGroup {
-    pub fn new(repeat_each: usize) -> Self {
-        assert_ne!(repeat_each, 0, "repeat_each must be greater than 0");
+    pub fn new(repeat_all: usize) -> Self {
+        assert_ne!(repeat_all, 0, "repeat_all must be greater than 0");
         Self {
-            repeat_each,
+            repeat_all,
             ..Default::default()
         }
     }
@@ -40,7 +42,7 @@ impl SimulationGroup {
     pub fn run_all(self) -> Result<Vec<SimulationOutput>, SimulationError> {
         let mut outputs = Vec::with_capacity(self.sims.len());
         for sim in self.sims {
-            for _ in 0..(self.repeat_each - 1) {
+            for _ in 0..(self.repeat_all - 1) {
                 let sim_clone = sim.clone();
                 outputs.push(sim_clone.run()?);
             }
@@ -54,7 +56,7 @@ impl SimulationGroup {
 impl Default for SimulationGroup {
     fn default() -> Self {
         Self {
-            repeat_each: 1,
+            repeat_all: 1,
             sims: vec![],
         }
     }
@@ -128,9 +130,11 @@ impl Simulation {
             }
         }
 
+        let longest_chain = blockchain.longest_chain();
         Ok(SimulationOutput {
             blockchain,
             blocks_by_miner,
+            longest_chain,
             miners,
             power_dist,
             rounds,
