@@ -61,27 +61,19 @@ impl SimulationGroup {
                 power_dist,
                 rounds: rounds.get(),
             })
+            .flat_map(|sim| vec![sim; repeat_all.get()])
             .collect();
 
-        let outputs: Result<_, _> = sims
-            .into_par_iter()
-            .map(|sim| -> Vec<Result<SimulationOutput, SimulationError>> {
-                (0..repeat_all.get())
-                    .into_par_iter()
-                    .map(|_| sim.clone().run())
-                    .collect()
-            })
-            .flatten()
-            .collect();
+        let outputs: Result<_, _> =
+            sims.into_par_iter().map(|sim| sim.run()).collect();
 
-        let outputs = outputs?;
-        Ok(SimulationResultsBuilder::new(outputs, repeat_all))
+        Ok(SimulationResultsBuilder::new(outputs?, repeat_all))
     }
 }
 
 /// A simulation of the blockchain mining game.
 ///
-/// ## Details
+/// # Details
 /// [Miner::get_action] is called on each [Miner] instance based on their
 /// given order.
 #[derive(Debug, Clone)]

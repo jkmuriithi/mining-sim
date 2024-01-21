@@ -11,9 +11,12 @@
 
 use std::collections::VecDeque;
 
-use crate::block::{Block, BlockID};
+use crate::{
+    block::{Block, BlockID},
+    tie_breaker::TieBreaker,
+};
 
-use super::{ties::TieBreaker, Action, Miner, MinerID};
+use super::{Action, Miner, MinerID};
 
 #[derive(Debug, Clone)]
 pub struct KDeficit {

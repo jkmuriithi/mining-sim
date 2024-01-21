@@ -11,9 +11,7 @@ use crate::{
 
 pub mod honest;
 pub mod kdeficit;
-pub mod nsm;
 pub mod selfish;
-pub mod ties;
 
 pub use honest::Honest;
 pub use kdeficit::KDeficit;

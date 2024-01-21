@@ -4,9 +4,8 @@ use rand::Rng;
 
 use crate::{block::BlockID, blockchain::Blockchain, miner::MinerID};
 
-/// Determines how a [Miner](super::Miner) implementation breaks ties
-/// if there are multiple blocks of the same height at the end of a
-/// [Blockchain].
+/// Breaks ties between multiple blocks of the same height at the tip of a
+/// blockchain's longest chain.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum TieBreaker {
     /// Use the block published in the earliest round.
@@ -23,7 +22,7 @@ pub enum TieBreaker {
 
 impl TieBreaker {
     /// Returns the block at the tip of the longest chain in `blockchain`,
-    /// breaking ties as specified.
+    /// according to the given tie-breaking rule.
     pub fn choose(&self, blockchain: &Blockchain) -> BlockID {
         let tip = blockchain.tip();
 

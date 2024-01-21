@@ -19,7 +19,7 @@ impl Block {
         miner_id: MinerID,
         txns: Option<Vec<Transaction>>,
     ) -> Self {
-        Block {
+        Self {
             id,
             parent_id,
             miner_id,

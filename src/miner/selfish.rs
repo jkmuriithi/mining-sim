@@ -5,18 +5,17 @@ use std::collections::VecDeque;
 use crate::{
     block::{Block, BlockID},
     blockchain::Blockchain,
+    tie_breaker::TieBreaker,
 };
 
-use super::{ties::TieBreaker, Action, Miner, MinerID};
+use super::{Action, Miner, MinerID};
 
 #[derive(Debug, Default, Clone)]
 
 pub struct Selfish {
     id: Option<MinerID>,
     tie_breaker: Option<TieBreaker>,
-    /// All blocks which are mined, but unpublished.
     hidden_blocks: VecDeque<Block>,
-    /// Height of the highest block on the private chain.
     private_height: usize,
 }
 

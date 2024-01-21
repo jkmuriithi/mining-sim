@@ -89,12 +89,13 @@ impl Blockchain {
     /// Panics if `index` is greater than [Blockchain::max_height].
     #[inline]
     pub fn at_height(&self, index: usize) -> &[BlockID] {
-        assert!(
+        debug_assert!(
             index <= self.max_height,
             "{} exceeds the maximum height {} of the chain",
             index,
             self.max_height
         );
+
         &self.blocks_by_height[index]
     }
 
@@ -104,8 +105,9 @@ impl Blockchain {
     ///
     /// # Panics
     /// If a block with [BlockID] `id` is not present on the chain.
+    // TODO: Investigate ways of optimizing this loop
     pub fn ancestors_of(&self, id: BlockID) -> Vec<BlockID> {
-        assert!(
+        debug_assert!(
             self.contains(id),
             "blockchain does not contain a block with ID: {:?}",
             id
@@ -115,7 +117,7 @@ impl Blockchain {
 
         let mut curr = id;
         while curr != self.genesis_id {
-            curr = self.get_parent(curr).unwrap();
+            curr = self.blocks[&curr].block.parent_id.unwrap();
             ancestors.push(curr);
         }
 
@@ -170,6 +172,7 @@ impl Blockchain {
         let height = parent_data.height + 1;
         if height > self.max_height {
             debug_assert!(height == self.max_height + 1);
+
             self.blocks_by_height.push(vec![block.id]);
             self.max_height = height;
         } else {

@@ -1,6 +1,6 @@
-use rayon::prelude::*;
-
 use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
+
+use rayon::prelude::*;
 
 use crate::{
     miner::MinerID, power_dist::PowerValue, simulation::SimulationOutput,
@@ -137,8 +137,8 @@ pub struct SimulationResults {
 }
 
 impl SimulationResults {
-    pub const SEPARATOR_VERTICAL: char = '|';
-    pub const SEPARATOR_HORIZONTAL: char = '-';
+    const SEPARATOR_VERTICAL: char = '|';
+    const SEPARATOR_HORIZONTAL: char = '-';
 
     pub fn format(&self) -> OutputFormat {
         self.format

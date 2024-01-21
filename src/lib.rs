@@ -41,6 +41,7 @@ pub mod blockchain;
 pub mod miner;
 pub mod power_dist;
 pub mod simulation;
+pub mod tie_breaker;
 pub mod transaction;
 
 pub use blockchain::{BlockPublishingError, Blockchain};
@@ -50,6 +51,6 @@ pub use miner::Miner;
 pub use power_dist::{PowerDistribution, PowerDistributionError, PowerValue};
 
 pub use simulation::{
-    SimulationBuildError, SimulationBuilder, SimulationGroup, SimulationOutput,
-    SimulationResults, SimulationResultsBuilder,
+    OutputFormat, SimulationBuildError, SimulationBuilder, SimulationGroup,
+    SimulationOutput, SimulationResults, SimulationResultsBuilder,
 };

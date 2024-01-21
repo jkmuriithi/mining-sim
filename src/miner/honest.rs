@@ -4,9 +4,10 @@ use crate::{
     block::{Block, BlockID},
     blockchain::Blockchain,
     miner::MinerID,
+    tie_breaker::TieBreaker,
 };
 
-use super::{ties::TieBreaker, Action, Miner};
+use super::{Action, Miner};
 
 /// Publishes all blocks as soon as possible at the tip of the longest chain.
 #[derive(Debug, Default, Clone)]
