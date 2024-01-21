@@ -1,9 +1,13 @@
-use std::{collections::HashMap, num::NonZeroUsize};
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZeroUsize,
+};
 
 use rand::{
     distributions::{WeightedError, WeightedIndex},
     prelude::Distribution,
 };
+use rayon::prelude::*;
 
 use crate::{
     block::BlockID,
@@ -16,8 +20,7 @@ pub mod builder;
 pub mod results;
 
 pub use builder::{SimulationBuildError, SimulationBuilder};
-
-use results::SimulationResultsBuilder;
+pub use results::{OutputFormat, SimulationResults, SimulationResultsBuilder};
 
 /// Container for a group of simulations which run on the same set of miners.
 /// Simulations should be run using this struct's `run_all` method.
@@ -49,23 +52,29 @@ impl SimulationGroup {
         } = self;
 
         let blockchain = blockchain.unwrap_or_default();
-        let mut outputs = vec![];
-        for power_dist in power_dists {
-            let sim = Simulation {
+
+        let sims: Vec<_> = power_dists
+            .into_iter()
+            .map(|power_dist| Simulation {
                 blockchain: blockchain.clone(),
                 miners: miners.clone(),
                 power_dist,
                 rounds: rounds.get(),
-            };
+            })
+            .collect();
 
-            for _ in 0..(repeat_all.get() - 1) {
-                let sim_clone = sim.clone();
-                outputs.push(sim_clone.run()?);
-            }
+        let outputs: Result<_, _> = sims
+            .into_par_iter()
+            .map(|sim| -> Vec<Result<SimulationOutput, SimulationError>> {
+                (0..repeat_all.get())
+                    .into_par_iter()
+                    .map(|_| sim.clone().run())
+                    .collect()
+            })
+            .flatten()
+            .collect();
 
-            outputs.push(sim.run()?);
-        }
-
+        let outputs = outputs?;
         Ok(SimulationResultsBuilder::new(outputs, repeat_all))
     }
 }
@@ -83,12 +92,12 @@ struct Simulation {
     rounds: usize,
 }
 
-/// Contains the output data from a [Simulation].
+/// Contains the output data from a simulation.
 #[derive(Debug, Clone)]
 pub struct SimulationOutput {
     pub blockchain: Blockchain,
     pub blocks_by_miner: HashMap<MinerID, Vec<BlockID>>,
-    pub longest_chain: Vec<BlockID>,
+    pub longest_chain: HashSet<BlockID>,
     pub miners: Vec<Box<dyn Miner>>,
     pub power_dist: PowerDistribution,
     pub rounds: usize,
@@ -96,12 +105,12 @@ pub struct SimulationOutput {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SimulationError {
+    #[error("block could not be published")]
+    BlockPublishingError(#[from] BlockPublishingError),
     #[error("invalid mining power distribution")]
     PowerDistributionError(#[from] PowerDistributionError),
     #[error("could not create rand::distributions::WeightedIndex")]
     WeightedIndexError(#[from] WeightedError),
-    #[error("block could not be published")]
-    BlockPublishingError(#[from] BlockPublishingError),
 }
 
 impl Simulation {
@@ -148,7 +157,7 @@ impl Simulation {
             }
         }
 
-        let longest_chain = blockchain.longest_chain();
+        let longest_chain = HashSet::from_iter(blockchain.longest_chain());
         Ok(SimulationOutput {
             blockchain,
             blocks_by_miner,

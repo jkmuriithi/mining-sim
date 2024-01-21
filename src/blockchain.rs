@@ -1,21 +1,15 @@
 use std::{collections::HashMap, ops::Index};
 
-use crate::{
-    block::{Block, BlockID},
-    miner::MinerID,
-};
+use crate::block::{Block, BlockID};
 
 /// Representation of a public blockchain which is mined on by a set of
 /// [Miners](crate::miner::Miner). [Blocks](Block) are published to this chain
 /// via [Blockchain::publish].
 #[derive(Debug, Clone)]
 pub struct Blockchain {
-    pub genesis_id: BlockID,
-    /// Maximum height of any block on the chain.
-    pub max_height: usize,
+    genesis_id: BlockID,
+    max_height: usize,
     blocks: HashMap<BlockID, BlockData>,
-    /// IDs of all blocks in the chain, arranged in height order, and sorted by
-    /// the order in which they were published.
     blocks_by_height: Vec<Vec<BlockID>>,
 }
 
@@ -57,25 +51,23 @@ impl Blockchain {
         }
     }
 
-    /// Creates a new blockchain containing a genesis block, in which the
-    /// genesis miner has [MinerID] `miner_id`.
-    pub fn with_genesis_miner(miner_id: MinerID) -> Self {
-        let mut chain = Self::new();
-        chain
-            .blocks
-            .get_mut(&chain.genesis_id)
-            .unwrap()
-            .block
-            .miner_id = miner_id;
-
-        chain
-    }
-
     /// Returns true iff the given block ID is associated with a block on the
     /// blockchain.
     #[inline]
     pub fn contains(&self, id: BlockID) -> bool {
         self.blocks.contains_key(&id)
+    }
+
+    #[inline]
+    /// ID of the genesis block.
+    pub fn genesis(&self) -> BlockID {
+        self.genesis_id
+    }
+
+    #[inline]
+    /// Maximum height of any block on the blockchain.
+    pub fn max_height(&self) -> usize {
+        self.max_height
     }
 
     /// Returns a reference to the [BlockData] associated with the given block

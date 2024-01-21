@@ -1,5 +1,14 @@
 //! Definitions for representations of blockchain miners.
 
+use std::fmt::Debug;
+
+use dyn_clone::DynClone;
+
+use crate::{
+    block::{Block, BlockID},
+    blockchain::Blockchain,
+};
+
 pub mod honest;
 pub mod kdeficit;
 pub mod nsm;
@@ -10,20 +19,11 @@ pub use honest::Honest;
 pub use kdeficit::KDeficit;
 pub use selfish::Selfish;
 
-use std::fmt::Debug;
-
-use dyn_clone::DynClone;
-
-use crate::{
-    block::{Block, BlockID},
-    blockchain::Blockchain,
-};
-
 /// A miner's unique identifier.
 pub type MinerID = usize;
 
 /// A blockchain miner with some strategy.
-pub trait Miner: Debug + DynClone {
+pub trait Miner: Debug + DynClone + Send + Sync {
     /// Get this miner's [MinerID].
     ///
     /// # Panics

@@ -21,6 +21,12 @@ game-theoretical models.
     - Can we tell when a strategy is "excessively patient"?
       (Or use a flag to let users know when that's a problem)
 - Add a real Genesis miner (implement and use a simple Miner that always waits)
+- Optimize ResultsBuilder/Results:
+  - over a 50 mil round execution:
+    - PowerDist -> Simulation took 0.0007 secs
+    - Simulation running took 8.2143 secs
+    - Building and printing results took **20.6052 secs**
+
 
 ## Issues:
 
@@ -37,4 +43,13 @@ pub mod power_dist;
 pub mod simulation;
 pub mod transaction;
 
-pub use simulation::SimulationBuilder;
+pub use blockchain::{BlockPublishingError, Blockchain};
+
+pub use miner::Miner;
+
+pub use power_dist::{PowerDistribution, PowerDistributionError, PowerValue};
+
+pub use simulation::{
+    SimulationBuildError, SimulationBuilder, SimulationGroup, SimulationOutput,
+    SimulationResults, SimulationResultsBuilder,
+};

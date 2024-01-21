@@ -12,10 +12,10 @@ use super::SimulationGroup;
 /// TODO: Explain methods and write example code.
 #[derive(Debug, Default)]
 pub struct SimulationBuilder {
-    pub blockchain: Option<Blockchain>,
-    pub power_dists: Vec<PowerDistribution>,
-    pub repeat_all: Option<NonZeroUsize>,
-    pub rounds: Option<NonZeroUsize>,
+    blockchain: Option<Blockchain>,
+    power_dists: Vec<PowerDistribution>,
+    repeat_all: Option<NonZeroUsize>,
+    rounds: Option<NonZeroUsize>,
     last_assigned_miner_id: MinerID,
     miners: Vec<Box<dyn Miner>>,
 }
@@ -151,6 +151,7 @@ impl SimulationBuilder {
 
         let repeat_all = repeat_all.unwrap_or(NonZeroUsize::new(1).unwrap());
         let rounds = rounds.unwrap_or(NonZeroUsize::new(1).unwrap());
+
         Ok(SimulationGroup {
             blockchain,
             miners,

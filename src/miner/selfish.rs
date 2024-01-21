@@ -48,7 +48,7 @@ impl Miner for Selfish {
         chain: &Blockchain,
         block: Option<BlockID>,
     ) -> Action {
-        if self.private_height < chain.max_height {
+        if self.private_height < chain.max_height() {
             self.hidden_blocks.clear();
         }
 

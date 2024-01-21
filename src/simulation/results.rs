@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
 
 use crate::{
@@ -41,7 +43,7 @@ impl SimulationResultsBuilder {
         self
     }
 
-    pub fn with_miner_names(mut self) -> Self {
+    pub fn with_strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
             self.columns.insert(ColumnType::MinerStrategyName(miner_id));
@@ -85,11 +87,12 @@ impl SimulationResultsBuilder {
             columns.insert(ColumnType::MiningPower(miner_id));
         }
 
+        let columns = Vec::from_iter(columns);
         let rows = if averaged {
             data.chunks(repeat_all.get())
                 .map(|sim_outputs| {
                     columns
-                        .iter()
+                        .par_iter()
                         .map(|col_type| {
                             col_type.get_averaged_value(sim_outputs)
                         })
@@ -100,7 +103,7 @@ impl SimulationResultsBuilder {
             data.iter()
                 .map(|sim_output| {
                     columns
-                        .iter()
+                        .par_iter()
                         .map(|col_type| col_type.get_value(sim_output))
                         .collect()
                 })
@@ -128,14 +131,22 @@ impl Default for SimulationResultsBuilder {
 }
 
 pub struct SimulationResults {
-    pub format: OutputFormat,
-    columns: BTreeSet<ColumnType>,
+    format: OutputFormat,
+    columns: Vec<ColumnType>,
     rows: Vec<Vec<ColumnValue>>,
 }
 
 impl SimulationResults {
     pub const SEPARATOR_VERTICAL: char = '|';
     pub const SEPARATOR_HORIZONTAL: char = '-';
+
+    pub fn format(&self) -> OutputFormat {
+        self.format
+    }
+
+    pub fn set_format(&mut self, format: OutputFormat) {
+        self.format = format;
+    }
 }
 
 impl Display for SimulationResults {
@@ -145,16 +156,16 @@ impl Display for SimulationResults {
                 let titles: Vec<_> =
                     self.columns.iter().map(ToString::to_string).collect();
 
-                writeln!(f, "{}", titles.join(","))?;
+                write!(f, "{}", titles.join(","))?;
 
                 for row in self.rows.iter() {
+                    writeln!(f)?;
+
                     let row: Vec<_> =
                         row.iter().map(ToString::to_string).collect();
 
-                    writeln!(f, "{}", row.join(","))?;
+                    write!(f, "{}", row.join(","))?;
                 }
-
-                Ok(())
             }
             OutputFormat::PrettyPrint => {
                 let titles: Vec<_> =
@@ -183,14 +194,14 @@ impl Display for SimulationResults {
                         write!(f, "{}", Self::SEPARATOR_VERTICAL)?;
                     }
                 }
-
-                Ok(())
             }
         }
+
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum OutputFormat {
     CSV,
     #[default]
@@ -199,7 +210,7 @@ pub enum OutputFormat {
 
 /// Type of column that can appear in a data table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ColumnType {
+enum ColumnType {
     // Variant order determines the order of the data tables:
     // https://doc.rust-lang.org/stable/std/cmp/trait.PartialOrd.html#derivable
     MinerStrategyName(MinerID),
@@ -210,15 +221,19 @@ pub enum ColumnType {
 }
 
 #[inline]
-fn revenue_of(miner_id: MinerID, data: &SimulationOutput) -> f64 {
-    let mut revenue = 0.0;
-    for block_id in data.longest_chain.iter() {
-        if data.blockchain[block_id].block.miner_id == miner_id {
-            revenue += 1.0;
-        }
-    }
+fn revenue_of(miner_id: &MinerID, data: &SimulationOutput) -> f64 {
+    let blocks = data
+        .blocks_by_miner
+        .get(miner_id)
+        .map(|block_ids| {
+            block_ids
+                .iter()
+                .filter(|&block_id| data.longest_chain.contains(block_id))
+                .count() as f64
+        })
+        .unwrap_or_default();
 
-    revenue / data.longest_chain.len() as f64
+    blocks / data.longest_chain.len() as f64
 }
 
 impl ColumnType {
@@ -238,7 +253,7 @@ impl ColumnType {
                 ColumnValue::MiningPower(power)
             }
             Self::MinerRevenue(miner_id) => {
-                let revenue = revenue_of(*miner_id, data);
+                let revenue = revenue_of(miner_id, data);
 
                 ColumnValue::MinerRevenue(revenue)
             }
@@ -258,24 +273,24 @@ impl ColumnType {
     pub fn get_averaged_value(&self, data: &[SimulationOutput]) -> ColumnValue {
         match &self {
             Self::MinerRevenue(miner_id) => {
-                let mut revenue = 0.0;
-                for sim_output in data {
-                    revenue += revenue_of(*miner_id, sim_output);
-                }
+                let mut revenue = data
+                    .iter()
+                    .map(|sim_output| revenue_of(miner_id, sim_output))
+                    .sum();
                 revenue /= data.len() as f64;
 
                 ColumnValue::MinerRevenue(revenue)
             }
             Self::LongestChainLength => {
-                let mut length = 0.0;
-                for sim_output in data {
-                    length += sim_output.longest_chain.len() as f64;
-                }
+                let mut length = data
+                    .iter()
+                    .map(|sim_output| sim_output.longest_chain.len() as f64)
+                    .sum();
                 length /= data.len() as f64;
 
                 ColumnValue::LongestChainLength(length)
             }
-            // use get_value on the first element for invariant fields
+            // use the first simulation's values for constant fields
             Self::MinerStrategyName(_)
             | Self::MiningPower(_)
             | Self::Rounds => self.get_value(&data[0]),
@@ -307,7 +322,7 @@ impl Display for ColumnType {
 
 /// Value which corresponds to a [ColumnType].
 #[derive(Debug, Clone)]
-pub enum ColumnValue {
+enum ColumnValue {
     MinerStrategyName(String),
     MiningPower(PowerValue),
     MinerRevenue(f64),

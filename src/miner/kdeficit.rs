@@ -81,7 +81,7 @@ impl Miner for KDeficit {
     ) -> super::Action {
         let id = self.id();
         let tb = self.tie_breaker.unwrap();
-        let capitulation = self.capitulation.unwrap_or(chain.genesis_id);
+        let capitulation = self.capitulation.unwrap_or(chain.genesis());
 
         if let Some(block_id) = block {
             self.hidden.push_back(block_id);
