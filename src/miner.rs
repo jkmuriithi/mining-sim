@@ -26,7 +26,7 @@ pub type MinerID = usize;
 pub trait Miner: Debug + DynClone {
     /// Get this miner's [MinerID].
     ///
-    /// ## Panics
+    /// # Panics
     /// Panics if this miner's ID has not been set using [Miner::set_id].
     fn id(&self) -> MinerID;
 
@@ -38,7 +38,7 @@ pub trait Miner: Debug + DynClone {
     /// this miner has been selected as the proposer for this round, and `None`
     /// otherwise.
     ///
-    /// ## Panics
+    /// # Panics
     /// Panics if the ID of this miner has not been set using [Miner::set_id].
     fn get_action(
         &mut self,

@@ -20,10 +20,8 @@ game-theoretical models.
       block
     - Can we tell when a strategy is "excessively patient"?
       (Or use a flag to let users know when that's a problem)
+- Add a real Genesis miner (implement and use a simple Miner that always waits)
 
-- Split Simulation into two structs (Simulation and SimulationSet)
-- Revise results - move CSV output to a function and make Display "pretty-print"
-a table
 ## Issues:
 
 ## Important Tests (Conversation with Weinberg):
@@ -35,6 +33,7 @@ a table
 pub mod block;
 pub mod blockchain;
 pub mod miner;
+pub mod power_dist;
 pub mod simulation;
 pub mod transaction;
 

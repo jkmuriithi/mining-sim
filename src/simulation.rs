@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroUsize};
 
 use rand::{
     distributions::{WeightedError, WeightedIndex},
@@ -6,59 +6,67 @@ use rand::{
 };
 
 use crate::{
+    block::BlockID,
     blockchain::{BlockPublishingError, Blockchain},
     miner::{Action, Miner, MinerID},
+    power_dist::{PowerDistribution, PowerDistributionError},
 };
 
 pub mod builder;
-pub mod power_dist;
 pub mod results;
 
 pub use builder::{SimulationBuildError, SimulationBuilder};
-pub use power_dist::{PowerDistribution, PowerDistributionError};
 
-use results::SimulationOutput;
+use results::SimulationResultsBuilder;
 
-/// Container for a group of simulations, which can be
+/// Container for a group of simulations which run on the same set of miners.
+/// Simulations should be run using this struct's `run_all` method.
 #[derive(Debug, Clone)]
 pub struct SimulationGroup {
-    sims: Vec<Simulation>,
-    repeat_all: usize,
+    blockchain: Option<Blockchain>,
+    miners: Vec<Box<dyn Miner>>,
+    power_dists: Vec<PowerDistribution>,
+    repeat_all: NonZeroUsize,
+    rounds: NonZeroUsize,
 }
 
 impl SimulationGroup {
-    pub fn new(repeat_all: usize) -> Self {
-        assert_ne!(repeat_all, 0, "repeat_all must be greater than 0");
-        Self {
+    pub fn add(&mut self, power_dist: PowerDistribution) {
+        self.power_dists.push(power_dist);
+    }
+
+    pub fn builder() -> SimulationBuilder {
+        SimulationBuilder::new()
+    }
+
+    pub fn run_all(self) -> Result<SimulationResultsBuilder, SimulationError> {
+        let SimulationGroup {
+            blockchain,
+            miners,
+            power_dists,
             repeat_all,
-            ..Default::default()
-        }
-    }
+            rounds,
+        } = self;
 
-    pub fn add(&mut self, sim: Simulation) {
-        self.sims.push(sim);
-    }
+        let blockchain = blockchain.unwrap_or_default();
+        let mut outputs = vec![];
+        for power_dist in power_dists {
+            let sim = Simulation {
+                blockchain: blockchain.clone(),
+                miners: miners.clone(),
+                power_dist,
+                rounds: rounds.get(),
+            };
 
-    pub fn run_all(self) -> Result<Vec<SimulationOutput>, SimulationError> {
-        let mut outputs = Vec::with_capacity(self.sims.len());
-        for sim in self.sims {
-            for _ in 0..(self.repeat_all - 1) {
+            for _ in 0..(repeat_all.get() - 1) {
                 let sim_clone = sim.clone();
                 outputs.push(sim_clone.run()?);
             }
+
             outputs.push(sim.run()?);
         }
 
-        Ok(outputs)
-    }
-}
-
-impl Default for SimulationGroup {
-    fn default() -> Self {
-        Self {
-            repeat_all: 1,
-            sims: vec![],
-        }
+        Ok(SimulationResultsBuilder::new(outputs, repeat_all))
     }
 }
 
@@ -68,11 +76,22 @@ impl Default for SimulationGroup {
 /// [Miner::get_action] is called on each [Miner] instance based on their
 /// given order.
 #[derive(Debug, Clone)]
-pub struct Simulation {
-    initial_blockchain: Option<Blockchain>,
+struct Simulation {
+    blockchain: Blockchain,
     miners: Vec<Box<dyn Miner>>,
     power_dist: PowerDistribution,
     rounds: usize,
+}
+
+/// Contains the output data from a [Simulation].
+#[derive(Debug, Clone)]
+pub struct SimulationOutput {
+    pub blockchain: Blockchain,
+    pub blocks_by_miner: HashMap<MinerID, Vec<BlockID>>,
+    pub longest_chain: Vec<BlockID>,
+    pub miners: Vec<Box<dyn Miner>>,
+    pub power_dist: PowerDistribution,
+    pub rounds: usize,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -89,7 +108,7 @@ impl Simulation {
     /// Executes the configured simulation.
     fn run(self) -> Result<SimulationOutput, SimulationError> {
         let Simulation {
-            initial_blockchain,
+            mut blockchain,
             mut miners,
             power_dist,
             rounds,
@@ -99,16 +118,15 @@ impl Simulation {
         let power_values = power_dist.values(miners.len())?;
         let gamma = WeightedIndex::new(power_values)?;
 
-        let mut blockchain = initial_blockchain.unwrap_or_default();
         let mut blocks_by_miner: HashMap<MinerID, Vec<_>> = HashMap::new();
         for r in 1..=self.rounds {
             let proposer = gamma.sample(&mut rng) + 1;
 
             for m in miners.iter_mut() {
                 let miner = m.id();
-                let block = if proposer == miner { Some(r) } else { None };
+                let block_id = if proposer == miner { Some(r) } else { None };
 
-                match m.get_action(&blockchain, block) {
+                match m.get_action(&blockchain, block_id) {
                     Action::Wait => (),
                     Action::Publish(block) => {
                         blocks_by_miner

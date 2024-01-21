@@ -21,9 +21,9 @@ pub enum PowerDistribution {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PowerDistributionError {
-    #[error("distribution values sum to {0:.6}, not 1.0")]
+    #[error("distribution values sum to {0}, not 1.0")]
     BadDistributionSum(PowerValue),
-    #[error("power value {0:.6} is not in the range 0.0..=1.0")]
+    #[error("power value {0} is not in the range 0.0..=1.0")]
     BadPowerValue(PowerValue),
     #[error("cannot set power for the genesis miner (MinerID 0)")]
     SetMinerGenesisMiner,
@@ -108,16 +108,19 @@ impl PowerDistribution {
     ) -> Result<PowerValue, PowerDistributionError> {
         self.validate(num_miners)?;
 
-        Ok(self.power_of_unchecked(num_miners, miner_id))
+        Ok(unsafe { self.power_of_unchecked(miner_id, num_miners) })
     }
 
-    pub fn power_of_unchecked(
+    /// # Safety
+    /// This function expects the underlying power distribution to be a valid
+    /// discrete probability distribution over the given number of miners.
+    pub unsafe fn power_of_unchecked(
         &self,
         miner_id: MinerID,
         num_miners: usize,
     ) -> PowerValue {
         match &self {
-            Self::SetValues(dist) => dist[miner_id],
+            Self::SetValues(dist) => dist[miner_id - 1],
             Self::Equal => 1.0 / num_miners as PowerValue,
             Self::SetMiner(id, power) => {
                 if miner_id == *id {
@@ -135,10 +138,16 @@ impl PowerDistribution {
     ) -> Result<Vec<PowerValue>, PowerDistributionError> {
         self.validate(num_miners)?;
 
-        Ok(self.values_unchecked(num_miners))
+        Ok(unsafe { self.values_unchecked(num_miners) })
     }
 
-    pub fn values_unchecked(&self, num_miners: usize) -> Vec<PowerValue> {
+    /// # Safety
+    /// This function expects the underlying power distribution to be a valid
+    /// discrete probability distribution over the given number of miners.
+    pub unsafe fn values_unchecked(
+        &self,
+        num_miners: usize,
+    ) -> Vec<PowerValue> {
         match &self {
             Self::SetValues(dist) => dist.clone(),
             Self::Equal => {
@@ -160,12 +169,12 @@ impl PowerDistribution {
 
 #[cfg(test)]
 mod tests {
-    use crate::simulation::PowerDistribution;
+    use super::PowerDistribution;
 
     #[test]
     fn power_dist_equal_power() {
         assert_eq!(
-            PowerDistribution::Equal.values_unchecked(4),
+            PowerDistribution::Equal.values(4).unwrap(),
             vec![0.25, 0.25, 0.25, 0.25]
         )
     }

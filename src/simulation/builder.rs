@@ -1,21 +1,21 @@
+use std::num::NonZeroUsize;
+
 use crate::{
     blockchain::Blockchain,
     miner::{Miner, MinerID},
+    power_dist::{PowerDistribution, PowerDistributionError, PowerValue},
 };
 
-use super::{
-    power_dist::PowerValue, PowerDistribution, PowerDistributionError,
-    Simulation, SimulationGroup,
-};
+use super::SimulationGroup;
 
 /// Builds up a set of simulations based on the configuration parameters.
 /// TODO: Explain methods and write example code.
 #[derive(Debug, Default)]
 pub struct SimulationBuilder {
-    pub initial_blockchain: Option<Blockchain>,
+    pub blockchain: Option<Blockchain>,
     pub power_dists: Vec<PowerDistribution>,
-    pub repeat_all: Option<usize>,
-    pub rounds: Option<usize>,
+    pub repeat_all: Option<NonZeroUsize>,
+    pub rounds: Option<NonZeroUsize>,
     last_assigned_miner_id: MinerID,
     miners: Vec<Box<dyn Miner>>,
 }
@@ -49,7 +49,7 @@ impl SimulationBuilder {
 
     /// Run each configured simulation `num` times.
     pub fn repeat_all(mut self, num: usize) -> Self {
-        self.repeat_all = Some(num);
+        self.repeat_all = NonZeroUsize::new(num);
 
         self
     }
@@ -57,14 +57,14 @@ impl SimulationBuilder {
     /// Set the initial blockchain state used in the simulation.
     /// ([Blockchain::default] used otherwise).
     pub fn with_blockchain(mut self, chain: Blockchain) -> Self {
-        self.initial_blockchain = Some(chain);
+        self.blockchain = Some(chain);
 
         self
     }
 
     /// Set the number of rounds the simulation will last for (default 1).
     pub fn with_rounds(mut self, rounds: usize) -> Self {
-        self.rounds = Some(rounds);
+        self.rounds = NonZeroUsize::new(rounds);
 
         self
     }
@@ -130,11 +130,11 @@ impl SimulationBuilder {
         use SimulationBuildError::*;
 
         let SimulationBuilder {
-            repeat_all: repeat_each,
-            rounds,
-            mut power_dists,
-            initial_blockchain,
+            blockchain,
             miners,
+            mut power_dists,
+            repeat_all,
+            rounds,
             ..
         } = self;
 
@@ -145,30 +145,19 @@ impl SimulationBuilder {
             power_dists.push(PowerDistribution::Equal);
         }
 
-        let repeat_each = match repeat_each {
-            Some(0) => return Err(ZeroRepeats),
-            Some(x) => x,
-            None => 1,
-        };
-        let mut group = SimulationGroup::new(repeat_each);
-
-        let rounds = match rounds {
-            Some(0) => return Err(ZeroRounds),
-            Some(x) => x,
-            None => 1,
-        };
-
-        for power_dist in power_dists {
+        for power_dist in power_dists.iter() {
             power_dist.validate(miners.len())?;
-            group.add(Simulation {
-                initial_blockchain: initial_blockchain.clone(),
-                miners: miners.clone(),
-                power_dist,
-                rounds,
-            })
         }
 
-        Ok(group)
+        let repeat_all = repeat_all.unwrap_or(NonZeroUsize::new(1).unwrap());
+        let rounds = rounds.unwrap_or(NonZeroUsize::new(1).unwrap());
+        Ok(SimulationGroup {
+            blockchain,
+            miners,
+            power_dists,
+            repeat_all,
+            rounds,
+        })
     }
 }
 

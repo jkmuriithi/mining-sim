@@ -93,7 +93,7 @@ impl Blockchain {
 
     /// Returns the IDs of all blocks at the specified height.
     ///
-    /// ## Panics
+    /// # Panics
     /// Panics if `index` is greater than [Blockchain::max_height].
     #[inline]
     pub fn at_height(&self, index: usize) -> &[BlockID] {
@@ -103,14 +103,14 @@ impl Blockchain {
             index,
             self.max_height
         );
-        &self.blocks_by_height[index as usize]
+        &self.blocks_by_height[index]
     }
 
     /// Returns the IDs of all blocks on the path from the given block ID to the
     /// genesis block, in ascending order of height and including the given
     /// block ID.
     ///
-    /// ## Panics
+    /// # Panics
     /// If a block with [BlockID] `id` is not present on the chain.
     pub fn ancestors_of(&self, id: BlockID) -> Vec<BlockID> {
         assert!(
