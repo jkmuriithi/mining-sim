@@ -1,13 +1,13 @@
-/*!
-## Wisdom of Weinberg:
- - Selfish mining doesn't work as prescribed because the "fork" case isn't
-   handled properly.
- - state can be an instance variable which is updated in constant time using
-   each get_action call; need some "abandonment" condition for when/if the LC
-   changes to a new branch
- - move on to other parametric strategy spaces from Anthony's work after this
-   one
-*/
+//! Implementation of the N-Deficit family of mining strategies
+
+// Wisdom of Weinberg:
+//  - Selfish mining doesn't work as prescribed because the "fork" case isn't
+//    handled properly.
+//  - state can be an instance variable which is updated in constant time using
+//    each get_action call; need some "abandonment" condition for when/if the LC
+//    changes to a new branch
+//  - move on to other parametric strategy spaces from Anthony's work after this
+//    one
 
 use std::{collections::VecDeque, num::NonZeroUsize};
 
@@ -19,23 +19,20 @@ use crate::{
 
 use super::{Action, Miner, MinerID};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NDeficit {
     capitulation: Option<BlockID>,
     hidden_blocks: VecDeque<BlockID>,
     id: Option<MinerID>,
-    n: NonZeroUsize,
+    n: Option<NonZeroUsize>,
     tie_breaker: Option<TieBreaker>,
 }
 
 impl NDeficit {
     pub fn new(n: usize) -> Self {
         Self {
-            id: None,
-            tie_breaker: None,
-            n: NonZeroUsize::new(n).expect("k greater than 0"),
-            capitulation: None,
-            hidden_blocks: VecDeque::new(),
+            n: NonZeroUsize::new(n),
+            ..Default::default()
         }
     }
 
@@ -62,15 +59,9 @@ impl NDeficit {
     }
 }
 
-impl Default for NDeficit {
-    fn default() -> Self {
-        Self::new(1)
-    }
-}
-
 impl Miner for NDeficit {
     fn name(&self) -> String {
-        format!("{}-Deficit", self.n)
+        format!("{}-Deficit", self.n.unwrap().get())
     }
 
     fn id(&self) -> MinerID {
@@ -92,7 +83,9 @@ impl Miner for NDeficit {
         }
 
         let id = self.id();
+        let n = self.n.expect("n greater than 0").get();
         let capitulation = self.capitulation.unwrap_or(chain.genesis());
+
         let tip = self.tie_breaker.unwrap().choose(chain);
 
         // Handle states B_{0} and B_{0, 1} (and therefore B_{0, x})
@@ -156,7 +149,7 @@ impl Miner for NDeficit {
         }
 
         match &counts[..] {
-            [1, x] | [1, x, ..] if *x > self.n.get() => {
+            [1, x] | [1, x, ..] if *x > n => {
                 self.capitulation = Some(tip);
                 self.hidden_blocks.clear();
                 Action::Wait

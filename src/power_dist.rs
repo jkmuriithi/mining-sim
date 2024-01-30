@@ -120,8 +120,8 @@ impl PowerDistribution {
         num_miners: usize,
     ) -> PowerValue {
         match &self {
-            Self::SetValues(dist) => dist[miner_id - 1],
             Self::Equal => 1.0 / num_miners as PowerValue,
+            Self::SetValues(dist) => dist[miner_id - 1],
             Self::SetMiner(id, power) => {
                 if miner_id == *id {
                     *power
@@ -149,10 +149,8 @@ impl PowerDistribution {
         num_miners: usize,
     ) -> Vec<PowerValue> {
         match &self {
+            Self::Equal => vec![1.0 / num_miners as PowerValue; num_miners],
             Self::SetValues(dist) => dist.clone(),
-            Self::Equal => {
-                vec![1.0 / num_miners as PowerValue; num_miners]
-            }
             Self::SetMiner(miner_id, power) => {
                 let other = (1.0 - power) / (num_miners - 1) as PowerValue;
 

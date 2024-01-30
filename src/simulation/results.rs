@@ -34,12 +34,31 @@ impl SimulationResultsBuilder {
 
     pub fn averaged(mut self) -> Self {
         self.averaged = true;
+        self.columns.insert(ColumnType::TimesRepeated);
+
+        self
+    }
+
+    pub fn with_block_count(mut self) -> Self {
+        self.columns.insert(ColumnType::BlocksPublished);
 
         self
     }
 
     pub fn with_longest_chain_length(mut self) -> Self {
         self.columns.insert(ColumnType::LongestChainLength);
+
+        self
+    }
+
+    pub fn with_mining_power_func(
+        mut self,
+        miner_id: MinerID,
+        name: &'static str,
+        func: fn(PowerValue) -> f64,
+    ) -> Self {
+        self.columns
+            .insert(ColumnType::MiningPowerFunction(miner_id, name, func));
 
         self
     }
@@ -217,7 +236,10 @@ enum ColumnType {
     MinerStrategyName(MinerID),
     MiningPower(MinerID),
     MinerRevenue(MinerID),
+    MiningPowerFunction(MinerID, &'static str, fn(PowerValue) -> f64),
     Rounds,
+    TimesRepeated,
+    BlocksPublished,
     LongestChainLength,
 }
 
@@ -238,41 +260,70 @@ fn revenue_of(miner_id: &MinerID, data: &SimulationOutput) -> f64 {
 }
 
 impl ColumnType {
-    fn get_value(&self, data: &SimulationOutput) -> ColumnValue {
+    fn get_value(&self, output: &SimulationOutput) -> ColumnValue {
         match &self {
+            Self::BlocksPublished => {
+                let num = output.blockchain.len() as f64;
+
+                ColumnValue::BlocksPublished(num)
+            }
             Self::MinerStrategyName(miner_id) => {
-                let name = data.miners[*miner_id - 1].name();
+                let name = output.miners[*miner_id - 1].name();
 
                 ColumnValue::MinerStrategyName(name)
             }
             Self::MiningPower(miner_id) => {
-                let power = data
+                let power = output
                     .power_dist
-                    .power_of(*miner_id, data.miners.len())
+                    .power_of(*miner_id, output.miners.len())
                     .expect("valid power distribution");
 
                 ColumnValue::MiningPower(power)
             }
+            Self::MiningPowerFunction(miner_id, _, func) => {
+                let power = output
+                    .power_dist
+                    .power_of(*miner_id, output.miners.len())
+                    .expect("valid power distribution");
+
+                let value = func(power);
+
+                ColumnValue::MiningPowerFunction(value)
+            }
             Self::MinerRevenue(miner_id) => {
-                let revenue = revenue_of(miner_id, data);
+                let revenue = revenue_of(miner_id, output);
 
                 ColumnValue::MinerRevenue(revenue)
             }
             Self::Rounds => {
-                let rounds = data.rounds;
+                let rounds = output.rounds;
 
                 ColumnValue::Rounds(rounds)
             }
             Self::LongestChainLength => {
-                let length = data.longest_chain.len() as f64;
+                let length = output.longest_chain.len() as f64;
 
                 ColumnValue::LongestChainLength(length)
+            }
+            Self::TimesRepeated => {
+                let times = 1;
+
+                ColumnValue::TimesRepeated(times)
             }
         }
     }
 
     pub fn get_averaged_value(&self, data: &[SimulationOutput]) -> ColumnValue {
         match &self {
+            Self::BlocksPublished => {
+                let mut num = data
+                    .iter()
+                    .map(|sim_output| sim_output.blockchain.len() as f64)
+                    .sum();
+                num /= data.len() as f64;
+
+                ColumnValue::BlocksPublished(num)
+            }
             Self::MinerRevenue(miner_id) => {
                 let mut revenue = data
                     .iter()
@@ -291,9 +342,15 @@ impl ColumnType {
 
                 ColumnValue::LongestChainLength(length)
             }
-            // use the first simulation's values for constant fields
+            Self::TimesRepeated => {
+                let times = data.len();
+
+                ColumnValue::TimesRepeated(times)
+            }
+            // otherwise use the first simulation's value
             Self::MinerStrategyName(_)
             | Self::MiningPower(_)
+            | Self::MiningPowerFunction(_, _, _)
             | Self::Rounds => self.get_value(&data[0]),
         }
     }
@@ -302,11 +359,17 @@ impl ColumnType {
 impl Display for ColumnType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
+            Self::BlocksPublished => {
+                write!(f, "Blocks Published")
+            }
             Self::MinerStrategyName(miner_id) => {
                 write!(f, "Miner {} Strategy", miner_id)
             }
             Self::MiningPower(miner_id) => {
                 write!(f, "Miner {} Power", miner_id)
+            }
+            Self::MiningPowerFunction(_, name, _) => {
+                write!(f, "{}", name)
             }
             Self::MinerRevenue(miner_id) => {
                 write!(f, "Miner {} Revenue", miner_id)
@@ -316,6 +379,9 @@ impl Display for ColumnType {
             }
             Self::LongestChainLength => {
                 write!(f, "Longest Chain Length")
+            }
+            Self::TimesRepeated => {
+                write!(f, "Times Repeated")
             }
         }
     }
@@ -327,18 +393,27 @@ enum ColumnValue {
     MinerStrategyName(String),
     MiningPower(PowerValue),
     MinerRevenue(f64),
+    MiningPowerFunction(f64),
     Rounds(usize),
+    BlocksPublished(f64),
+    TimesRepeated(usize),
     LongestChainLength(f64),
 }
 
 impl Display for ColumnValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
+            Self::BlocksPublished(num) => {
+                write!(f, "{:.1$}", num, FLOAT_PRECISION_DIGITS)
+            }
             Self::MinerStrategyName(name) => {
                 write!(f, "{}", name)
             }
             Self::MiningPower(power) => {
                 write!(f, "{:.1$}", power, FLOAT_PRECISION_DIGITS)
+            }
+            Self::MiningPowerFunction(value) => {
+                write!(f, "{:.1$}", value, FLOAT_PRECISION_DIGITS)
             }
             Self::MinerRevenue(revenue) => {
                 write!(f, "{:.1$}", revenue, FLOAT_PRECISION_DIGITS)
@@ -348,6 +423,9 @@ impl Display for ColumnValue {
             }
             Self::LongestChainLength(length) => {
                 write!(f, "{:.1$}", length, FLOAT_PRECISION_DIGITS)
+            }
+            Self::TimesRepeated(times) => {
+                write!(f, "{}", times)
             }
         }
     }

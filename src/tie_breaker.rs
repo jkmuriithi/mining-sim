@@ -56,7 +56,7 @@ impl TieBreaker {
                 let not_favored = tip
                     .iter()
                     .find(|&block_id| {
-                        !blockchain[block_id].block.miner_id.eq(miner_id)
+                        blockchain[block_id].block.miner_id.ne(miner_id)
                     })
                     .copied();
 

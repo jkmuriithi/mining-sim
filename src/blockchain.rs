@@ -50,36 +50,6 @@ impl Blockchain {
         }
     }
 
-    /// Returns true if a block with [BlockID] `id` is on the chain.
-    #[inline]
-    pub fn contains(&self, id: BlockID) -> bool {
-        self.blocks.contains_key(&id)
-    }
-
-    /// ID of the genesis block.
-    #[inline]
-    pub fn genesis(&self) -> BlockID {
-        self.genesis_id
-    }
-
-    /// Maximum height of any block on the blockchain.
-    #[inline]
-    pub fn max_height(&self) -> usize {
-        self.max_height
-    }
-
-    /// Returns a reference to the [BlockData] associated with `id`.
-    #[inline]
-    pub fn get(&self, id: BlockID) -> Option<&BlockData> {
-        self.blocks.get(&id)
-    }
-
-    /// Returns the parent of the block with the given ID.
-    #[inline]
-    pub fn get_parent(&self, id: BlockID) -> Option<BlockID> {
-        self.blocks.get(&id).and_then(|opt| opt.block.parent_id)
-    }
-
     /// Returns the IDs of all blocks at the specified height.
     ///
     /// # Panics
@@ -94,6 +64,51 @@ impl Blockchain {
         );
 
         &self.blocks_by_height[index]
+    }
+
+    /// Returns true if a block with [BlockID] `id` is on the chain.
+    #[inline]
+    pub fn contains(&self, id: BlockID) -> bool {
+        self.blocks.contains_key(&id)
+    }
+
+    /// ID of the genesis block.
+    #[inline]
+    pub fn genesis(&self) -> BlockID {
+        self.genesis_id
+    }
+
+    /// Returns a reference to the [BlockData] associated with `id`.
+    #[inline]
+    pub fn get(&self, id: BlockID) -> Option<&BlockData> {
+        self.blocks.get(&id)
+    }
+
+    /// Returns the parent of the block with the given ID.
+    #[inline]
+    pub fn get_parent(&self, id: BlockID) -> Option<BlockID> {
+        self.blocks.get(&id).and_then(|opt| opt.block.parent_id)
+    }
+
+    /// Returns the number of blocks published to the blockchain.
+    #[inline]
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.blocks.len()
+    }
+
+    /// Returns the IDs of all blocks on the longest chain, where the tip of the
+    /// longest chain is defined as the earliest block published at
+    /// [Blockchain::max_height].
+    #[inline]
+    pub fn longest_chain(&self) -> Vec<BlockID> {
+        self.ancestors_of(self.blocks_by_height.last().unwrap()[0])
+    }
+
+    /// Maximum height of any block on the blockchain.
+    #[inline]
+    pub fn max_height(&self) -> usize {
+        self.max_height
     }
 
     /// Returns the IDs of all blocks at the tip of the longest chain.
@@ -126,14 +141,6 @@ impl Blockchain {
 
         ancestors.reverse();
         ancestors
-    }
-
-    /// Returns the IDs of all blocks on the longest chain, where the tip of the
-    /// longest chain is defined as the earliest block published at
-    /// [Blockchain::max_height].
-    #[inline]
-    pub fn longest_chain(&self) -> Vec<BlockID> {
-        self.ancestors_of(self.blocks_by_height.last().unwrap()[0])
     }
 
     /// Adds the given block to the blockchain.
