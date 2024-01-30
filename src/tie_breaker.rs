@@ -1,11 +1,11 @@
-//! Utilities for describing tie-breaking behavior in strategies.
+//! Describing tie-breaking behavior in strategies
 
 use rand::Rng;
 
 use crate::{block::BlockID, blockchain::Blockchain, miner::MinerID};
 
-/// Breaks ties between multiple blocks of the same height at the tip of a
-/// blockchain's longest chain.
+/// Breaks ties between multiple blocks of at the tip of a blockchain's longest
+/// chain.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum TieBreaker {
     /// Use the block published in the earliest round.

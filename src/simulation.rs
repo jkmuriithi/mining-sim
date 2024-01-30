@@ -1,3 +1,5 @@
+//! Building/running simulations and analyzing the resulting data
+
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
@@ -61,6 +63,7 @@ impl SimulationGroup {
                 power_dist,
                 rounds: rounds.get(),
             })
+            // Clone each simulation repeat_all times
             .flat_map(|sim| vec![sim; repeat_all.get()])
             .collect();
 

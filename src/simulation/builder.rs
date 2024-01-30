@@ -70,7 +70,7 @@ impl SimulationBuilder {
     }
 
     /// Run the simulation using the specified mining power distribution.
-    pub fn with_power_dist<I>(mut self, dist: PowerDistribution) -> Self {
+    pub fn with_power_dist(mut self, dist: PowerDistribution) -> Self {
         self.power_dists.push(dist);
 
         self
@@ -141,6 +141,7 @@ impl SimulationBuilder {
         if miners.is_empty() {
             return Err(NoMinersGiven);
         }
+
         if power_dists.is_empty() {
             power_dists.push(PowerDistribution::Equal);
         }

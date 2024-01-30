@@ -1,4 +1,4 @@
-//! Implementation of selfish mining.
+//! Implementation of selfish mining
 
 use std::collections::VecDeque;
 
@@ -11,19 +11,16 @@ use crate::{
 use super::{Action, Miner, MinerID};
 
 #[derive(Debug, Default, Clone)]
-
 pub struct Selfish {
-    id: Option<MinerID>,
-    tie_breaker: Option<TieBreaker>,
     hidden_blocks: VecDeque<Block>,
+    id: Option<MinerID>,
     private_height: usize,
+    tie_breaker: Option<TieBreaker>,
 }
 
 impl Selfish {
     pub fn new() -> Self {
-        Selfish {
-            ..Default::default()
-        }
+        Self::default()
     }
 }
 
@@ -67,7 +64,13 @@ impl Miner for Selfish {
                 let fork = tip.iter().any(|&b| chain[b].block.miner_id == id)
                     && tip.iter().any(|&b| chain[b].block.miner_id != id);
 
-                let block = Block::new(block_id, Some(parent), id, None);
+                let block = Block {
+                    id: block_id,
+                    parent_id: Some(parent),
+                    miner_id: id,
+                    txns: None,
+                };
+
                 if fork && self.hidden_blocks.is_empty() {
                     Action::Publish(block)
                 } else {

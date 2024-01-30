@@ -1,4 +1,4 @@
-//! Definitions for representations of blockchain miners.
+//! Definitions for miner implementations
 
 use std::fmt::Debug;
 
@@ -10,11 +10,11 @@ use crate::{
 };
 
 pub mod honest;
-pub mod kdeficit;
+pub mod ndeficit;
 pub mod selfish;
 
 pub use honest::Honest;
-pub use kdeficit::KDeficit;
+pub use ndeficit::NDeficit;
 pub use selfish::Selfish;
 
 /// A miner's unique identifier.

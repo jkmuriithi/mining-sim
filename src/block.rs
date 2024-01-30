@@ -1,31 +1,21 @@
+//! Definitions for blocks
+
 use crate::{miner::MinerID, transaction::Transaction};
 
-/// A block's unique identifier.
+/// Numeric type for block identifiers.
 pub type BlockID = usize;
 
 /// Representation of a mined block of transactions.
 #[derive(Debug, Default, Clone)]
 pub struct Block {
+    /// Unique identifier of this block.
     pub id: BlockID,
+    /// ID of this block's parent.
     pub parent_id: Option<BlockID>,
+    /// ID of this block's miner.
     pub miner_id: MinerID,
+    /// Transaction data included in this block.
     pub txns: Option<Vec<Transaction>>,
-}
-
-impl Block {
-    pub fn new(
-        id: BlockID,
-        parent_id: Option<BlockID>,
-        miner_id: MinerID,
-        txns: Option<Vec<Transaction>>,
-    ) -> Self {
-        Self {
-            id,
-            parent_id,
-            miner_id,
-            txns,
-        }
-    }
 }
 
 impl PartialEq for Block {

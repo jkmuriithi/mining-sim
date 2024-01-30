@@ -6,10 +6,11 @@ use crate::{
     miner::MinerID, power_dist::PowerValue, simulation::SimulationOutput,
 };
 
-const FLOAT_PRECISION_DIGITS: usize = 6;
+/// Floating point precision of output data.
+pub const FLOAT_PRECISION_DIGITS: usize = 6;
 
-/// Builder for the [Results] struct. Typically produced by running a
-/// [SimulationGroup](super::SimulationGroup)
+/// Builder for [SimulationResults] struct. Typically produced by running a
+/// [SimulationGroup](super::SimulationGroup).
 #[derive(Debug, Clone)]
 pub struct SimulationResultsBuilder {
     averaged: bool,
@@ -111,8 +112,8 @@ impl SimulationResultsBuilder {
         };
 
         SimulationResults {
-            format,
             columns,
+            format,
             rows,
         }
     }
@@ -131,8 +132,8 @@ impl Default for SimulationResultsBuilder {
 }
 
 pub struct SimulationResults {
-    format: OutputFormat,
     columns: Vec<ColumnType>,
+    format: OutputFormat,
     rows: Vec<Vec<ColumnValue>>,
 }
 

@@ -1,4 +1,4 @@
-//! Definitions for the [PowerDistribution] struct.
+//! Describing distributions of mining power
 
 use crate::miner::MinerID;
 

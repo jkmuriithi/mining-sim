@@ -1,10 +1,10 @@
+//! Definitions for the blockchain
+
 use std::{collections::HashMap, ops::Index};
 
 use crate::block::{Block, BlockID};
 
-/// Representation of a public blockchain which is mined on by a set of
-/// [Miners](crate::miner::Miner). [Blocks](Block) are published to this chain
-/// via [Blockchain::publish].
+/// Representation of a public blockchain which miners can publish to.
 #[derive(Debug, Clone)]
 pub struct Blockchain {
     genesis_id: BlockID,
@@ -13,13 +13,13 @@ pub struct Blockchain {
     blocks_by_height: Vec<Vec<BlockID>>,
 }
 
-/// A block and its associated metadata as stored in a [Blockchain] instance.
+/// A block and its metadata as stored in a [Blockchain].
 #[derive(Debug, Default, Clone)]
 pub struct BlockData {
     pub block: Block,
+    /// Length of the path from `block` to the genesis block of the blockchain.
     pub height: usize,
-    /// All blocks which directly point to `block`. Allows for more flexible
-    /// traversal over the chain.
+    /// IDs of all blocks which point to `block` as their parent.
     pub children: Vec<BlockID>,
 }
 
@@ -37,8 +37,7 @@ pub enum BlockPublishingError {
 
 impl Blockchain {
     /// Creates a new blockchain containing a genesis block. The genesis block
-    /// has [BlockID] 0, and is associated with an uninstantiated genesis miner
-    /// with [MinerID] 0.
+    /// has [BlockID] 0, and the (uninstantiated) genesis miner has [MinerID] 0.
     pub fn new() -> Self {
         // Default BlockData matches the genesis block's BlockData
         let blocks = HashMap::from([(0, BlockData::default())]);
@@ -51,27 +50,25 @@ impl Blockchain {
         }
     }
 
-    /// Returns true iff the given block ID is associated with a block on the
-    /// blockchain.
+    /// Returns true if a block with [BlockID] `id` is on the chain.
     #[inline]
     pub fn contains(&self, id: BlockID) -> bool {
         self.blocks.contains_key(&id)
     }
 
-    #[inline]
     /// ID of the genesis block.
+    #[inline]
     pub fn genesis(&self) -> BlockID {
         self.genesis_id
     }
 
-    #[inline]
     /// Maximum height of any block on the blockchain.
+    #[inline]
     pub fn max_height(&self) -> usize {
         self.max_height
     }
 
-    /// Returns a reference to the [BlockData] associated with the given block
-    /// ID on the blockchain.
+    /// Returns a reference to the [BlockData] associated with `id`.
     #[inline]
     pub fn get(&self, id: BlockID) -> Option<&BlockData> {
         self.blocks.get(&id)
@@ -97,6 +94,12 @@ impl Blockchain {
         );
 
         &self.blocks_by_height[index]
+    }
+
+    /// Returns the IDs of all blocks at the tip of the longest chain.
+    #[inline]
+    pub fn tip(&self) -> &[BlockID] {
+        self.blocks_by_height.last().unwrap()
     }
 
     /// Returns the IDs of all blocks on the path from the given block ID to the
@@ -189,12 +192,6 @@ impl Blockchain {
         );
 
         Ok(())
-    }
-
-    /// Returns the IDs of all blocks at the tip of the longest chain.
-    #[inline]
-    pub fn tip(&self) -> &[BlockID] {
-        self.blocks_by_height.last().unwrap()
     }
 }
 
