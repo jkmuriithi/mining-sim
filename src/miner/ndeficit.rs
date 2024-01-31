@@ -23,15 +23,15 @@ use super::{Action, Miner, MinerID};
 pub struct NDeficit {
     capitulation: Option<BlockID>,
     hidden_blocks: VecDeque<BlockID>,
+    i: Option<NonZeroUsize>,
     id: Option<MinerID>,
-    n: Option<NonZeroUsize>,
     tie_breaker: Option<TieBreaker>,
 }
 
 impl NDeficit {
-    pub fn new(n: usize) -> Self {
+    pub fn new(i: usize) -> Self {
         Self {
-            n: NonZeroUsize::new(n),
+            i: NonZeroUsize::new(i),
             ..Default::default()
         }
     }
@@ -61,7 +61,7 @@ impl NDeficit {
 
 impl Miner for NDeficit {
     fn name(&self) -> String {
-        format!("{}-Deficit", self.n.unwrap().get())
+        format!("{}-Deficit", self.i.unwrap().get())
     }
 
     fn id(&self) -> MinerID {
@@ -83,7 +83,7 @@ impl Miner for NDeficit {
         }
 
         let id = self.id();
-        let n = self.n.expect("n greater than 0").get();
+        let n = self.i.expect("n greater than 0").get();
         let capitulation = self.capitulation.unwrap_or(chain.genesis());
 
         let tip = self.tie_breaker.unwrap().choose(chain);

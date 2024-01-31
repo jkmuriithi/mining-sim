@@ -3,7 +3,7 @@ use std::{error::Error, time::Instant};
 use mining_sim::{
     miner::{Honest, NDeficit},
     tie_breaker::TieBreaker,
-    PowerValue, SimulationBuilder,
+    OutputFormat, PowerValue, SimulationBuilder,
 };
 
 const GAMMA: f64 = 0.0;
@@ -28,8 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .averaged()
         .with_revenue()
         .with_strategy_names()
-        .with_block_count()
-        .with_longest_chain_length()
+        .with_format(OutputFormat::CSV)
         .with_mining_power_func(2, "Ideal NSM Revenue", nsm_rev)
         .with_mining_power_func(2, "Ideal SM Revenue", selfish_rev)
         .build();

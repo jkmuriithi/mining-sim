@@ -14,10 +14,17 @@ pub const FLOAT_PRECISION_DIGITS: usize = 6;
 #[derive(Debug, Clone)]
 pub struct SimulationResultsBuilder {
     averaged: bool,
-    columns: BTreeSet<ColumnType>,
+    columns: BTreeSet<Column>,
     data: Vec<SimulationOutput>,
     format: OutputFormat,
     repeat_all: NonZeroUsize,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum OutputFormat {
+    CSV,
+    #[default]
+    PrettyPrint,
 }
 
 impl SimulationResultsBuilder {
@@ -34,19 +41,19 @@ impl SimulationResultsBuilder {
 
     pub fn averaged(mut self) -> Self {
         self.averaged = true;
-        self.columns.insert(ColumnType::TimesRepeated);
+        self.columns.insert(Column::AverageOf);
 
         self
     }
 
-    pub fn with_block_count(mut self) -> Self {
-        self.columns.insert(ColumnType::BlocksPublished);
+    pub fn with_blocks_published(mut self) -> Self {
+        self.columns.insert(Column::BlocksPublished);
 
         self
     }
 
     pub fn with_longest_chain_length(mut self) -> Self {
-        self.columns.insert(ColumnType::LongestChainLength);
+        self.columns.insert(Column::LongestChainLength);
 
         self
     }
@@ -58,7 +65,7 @@ impl SimulationResultsBuilder {
         func: fn(PowerValue) -> f64,
     ) -> Self {
         self.columns
-            .insert(ColumnType::MiningPowerFunction(miner_id, name, func));
+            .insert(Column::MiningPowerFunction(miner_id, name, func));
 
         self
     }
@@ -66,7 +73,7 @@ impl SimulationResultsBuilder {
     pub fn with_strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
-            self.columns.insert(ColumnType::MinerStrategyName(miner_id));
+            self.columns.insert(Column::MinerStrategyName(miner_id));
         }
 
         self
@@ -75,14 +82,14 @@ impl SimulationResultsBuilder {
     pub fn with_revenue(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
-            self.columns.insert(ColumnType::MinerRevenue(miner_id));
+            self.columns.insert(Column::MinerRevenue(miner_id));
         }
 
         self
     }
 
     pub fn with_rounds(mut self) -> Self {
-        self.columns.insert(ColumnType::Rounds);
+        self.columns.insert(Column::Rounds);
 
         self
     }
@@ -104,7 +111,7 @@ impl SimulationResultsBuilder {
 
         let num_miners = data[0].miners.len();
         for miner_id in 1..=num_miners {
-            columns.insert(ColumnType::MiningPower(miner_id));
+            columns.insert(Column::MiningPower(miner_id));
         }
 
         let columns = Vec::from_iter(columns);
@@ -113,9 +120,7 @@ impl SimulationResultsBuilder {
                 .map(|sim_outputs| {
                     columns
                         .par_iter()
-                        .map(|col_type| {
-                            col_type.get_averaged_value(sim_outputs)
-                        })
+                        .map(|col_type| col_type.get_average_value(sim_outputs))
                         .collect()
                 })
                 .collect()
@@ -151,7 +156,7 @@ impl Default for SimulationResultsBuilder {
 }
 
 pub struct SimulationResults {
-    columns: Vec<ColumnType>,
+    columns: Vec<Column>,
     format: OutputFormat,
     rows: Vec<Vec<ColumnValue>>,
 }
@@ -171,35 +176,35 @@ impl SimulationResults {
 
 impl Display for SimulationResults {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let titles: Vec<_> = self
+            .columns
+            .iter()
+            .map(|col_type| col_type.to_string())
+            .collect();
+
         match self.format {
             OutputFormat::CSV => {
-                let titles: Vec<_> =
-                    self.columns.iter().map(ToString::to_string).collect();
-
                 write!(f, "{}", titles.join(","))?;
 
                 for row in self.rows.iter() {
                     writeln!(f)?;
 
                     let row: Vec<_> =
-                        row.iter().map(ToString::to_string).collect();
+                        row.iter().map(|val| val.to_string()).collect();
 
                     write!(f, "{}", row.join(","))?;
                 }
             }
             OutputFormat::PrettyPrint => {
-                let titles: Vec<_> =
-                    self.columns.iter().map(ToString::to_string).collect();
-                let column_widths: Vec<_> =
-                    titles.iter().map(String::len).collect();
+                let title_widths: Vec<_> =
+                    titles.iter().map(|title| title.len()).collect();
 
                 for title in titles {
-                    write!(f, " {} ", title)?;
-                    write!(f, "{}", Self::SEPARATOR_VERTICAL)?;
+                    write!(f, " {} {}", title, Self::SEPARATOR_VERTICAL)?;
                 }
                 writeln!(f)?;
 
-                let total_width = column_widths.iter().map(|x| x + 3).sum();
+                let total_width = title_widths.iter().map(|x| x + 3).sum();
                 for _ in 0..total_width {
                     write!(f, "{}", Self::SEPARATOR_HORIZONTAL)?;
                 }
@@ -208,10 +213,13 @@ impl Display for SimulationResults {
                     writeln!(f)?;
 
                     for (i, val) in row.iter().enumerate() {
-                        let val = val.to_string();
-
-                        write!(f, " {:1$} ", val, column_widths[i])?;
-                        write!(f, "{}", Self::SEPARATOR_VERTICAL)?;
+                        write!(
+                            f,
+                            " {:1$} {2}",
+                            val.to_string(),
+                            title_widths[i],
+                            Self::SEPARATOR_VERTICAL
+                        )?;
                     }
                 }
             }
@@ -221,26 +229,32 @@ impl Display for SimulationResults {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub enum OutputFormat {
-    CSV,
-    #[default]
-    PrettyPrint,
-}
-
 /// Type of column that can appear in a data table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-enum ColumnType {
-    // Variant order determines the order of the data tables:
+enum Column {
+    // Variant order determines the order of columns in output tables:
     // https://doc.rust-lang.org/stable/std/cmp/trait.PartialOrd.html#derivable
     MinerStrategyName(MinerID),
     MiningPower(MinerID),
     MinerRevenue(MinerID),
     MiningPowerFunction(MinerID, &'static str, fn(PowerValue) -> f64),
     Rounds,
-    TimesRepeated,
+    AverageOf,
     BlocksPublished,
     LongestChainLength,
+}
+
+/// Value which corresponds to a [Column].
+#[derive(Debug, Clone)]
+enum ColumnValue {
+    MinerStrategyName(String),
+    MiningPower(PowerValue),
+    MinerRevenue(f64),
+    MiningPowerFunction(f64),
+    Rounds(usize),
+    AverageOf(usize),
+    BlocksPublished(f64),
+    LongestChainLength(f64),
 }
 
 #[inline]
@@ -259,7 +273,7 @@ fn revenue_of(miner_id: &MinerID, data: &SimulationOutput) -> f64 {
     blocks / data.longest_chain.len() as f64
 }
 
-impl ColumnType {
+impl Column {
     fn get_value(&self, output: &SimulationOutput) -> ColumnValue {
         match &self {
             Self::BlocksPublished => {
@@ -305,15 +319,15 @@ impl ColumnType {
 
                 ColumnValue::LongestChainLength(length)
             }
-            Self::TimesRepeated => {
+            Self::AverageOf => {
                 let times = 1;
 
-                ColumnValue::TimesRepeated(times)
+                ColumnValue::AverageOf(times)
             }
         }
     }
 
-    pub fn get_averaged_value(&self, data: &[SimulationOutput]) -> ColumnValue {
+    fn get_average_value(&self, data: &[SimulationOutput]) -> ColumnValue {
         match &self {
             Self::BlocksPublished => {
                 let mut num = data
@@ -342,10 +356,10 @@ impl ColumnType {
 
                 ColumnValue::LongestChainLength(length)
             }
-            Self::TimesRepeated => {
+            Self::AverageOf => {
                 let times = data.len();
 
-                ColumnValue::TimesRepeated(times)
+                ColumnValue::AverageOf(times)
             }
             // otherwise use the first simulation's value
             Self::MinerStrategyName(_)
@@ -356,9 +370,12 @@ impl ColumnType {
     }
 }
 
-impl Display for ColumnType {
+impl Display for Column {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
+            Self::AverageOf => {
+                write!(f, "Average Of")
+            }
             Self::BlocksPublished => {
                 write!(f, "Blocks Published")
             }
@@ -380,29 +397,16 @@ impl Display for ColumnType {
             Self::LongestChainLength => {
                 write!(f, "Longest Chain Length")
             }
-            Self::TimesRepeated => {
-                write!(f, "Times Repeated")
-            }
         }
     }
-}
-
-/// Value which corresponds to a [ColumnType].
-#[derive(Debug, Clone)]
-enum ColumnValue {
-    MinerStrategyName(String),
-    MiningPower(PowerValue),
-    MinerRevenue(f64),
-    MiningPowerFunction(f64),
-    Rounds(usize),
-    BlocksPublished(f64),
-    TimesRepeated(usize),
-    LongestChainLength(f64),
 }
 
 impl Display for ColumnValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
+            Self::AverageOf(repeats) => {
+                write!(f, "{}", repeats)
+            }
             Self::BlocksPublished(num) => {
                 write!(f, "{:.1$}", num, FLOAT_PRECISION_DIGITS)
             }
@@ -423,9 +427,6 @@ impl Display for ColumnValue {
             }
             Self::LongestChainLength(length) => {
                 write!(f, "{:.1$}", length, FLOAT_PRECISION_DIGITS)
-            }
-            Self::TimesRepeated(times) => {
-                write!(f, "{}", times)
             }
         }
     }
