@@ -28,7 +28,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .averaged()
         .with_revenue()
         .with_strategy_names()
-        .with_format(OutputFormat::CSV)
         .with_mining_power_func(2, "Ideal NSM Revenue", nsm_rev)
         .with_mining_power_func(2, "Ideal SM Revenue", selfish_rev)
         .build();

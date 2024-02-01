@@ -1,4 +1,4 @@
-//! Describing tie-breaking behavior in strategies
+//! Describing tie-breaking behavior in miner strategies
 
 use rand::Rng;
 

@@ -196,15 +196,28 @@ impl Display for SimulationResults {
                 }
             }
             OutputFormat::PrettyPrint => {
-                let title_widths: Vec<_> =
+                let mut text_widths: Vec<_> =
                     titles.iter().map(|title| title.len()).collect();
 
-                for title in titles {
-                    write!(f, " {} {}", title, Self::SEPARATOR_VERTICAL)?;
+                for row in self.rows.iter() {
+                    for (i, val) in row.iter().enumerate() {
+                        let val = val.to_string();
+                        text_widths[i] = text_widths[i].max(val.len());
+                    }
+                }
+
+                for (i, title) in titles.into_iter().enumerate() {
+                    write!(
+                        f,
+                        " {:1$} {2}",
+                        title,
+                        text_widths[i],
+                        Self::SEPARATOR_VERTICAL
+                    )?;
                 }
                 writeln!(f)?;
 
-                let total_width = title_widths.iter().map(|x| x + 3).sum();
+                let total_width = text_widths.iter().map(|x| x + 3).sum();
                 for _ in 0..total_width {
                     write!(f, "{}", Self::SEPARATOR_HORIZONTAL)?;
                 }
@@ -217,7 +230,7 @@ impl Display for SimulationResults {
                             f,
                             " {:1$} {2}",
                             val.to_string(),
-                            title_widths[i],
+                            text_widths[i],
                             Self::SEPARATOR_VERTICAL
                         )?;
                     }

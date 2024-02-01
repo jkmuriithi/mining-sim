@@ -44,13 +44,14 @@ impl Miner for Selfish {
         chain: &Blockchain,
         block: Option<BlockID>,
     ) -> Action {
+        // If hidden_blocks only contains blocks that are
         if self.private_height < chain.max_height() {
             self.hidden_blocks.clear();
         }
 
         match block {
             Some(block_id) => {
-                let parent = if self.hidden_blocks.is_empty() {
+                let parent_id = if self.hidden_blocks.is_empty() {
                     let p = self.tie_breaker.unwrap().choose(chain);
                     self.private_height = chain[p].height + 1;
                     p
@@ -60,13 +61,14 @@ impl Miner for Selfish {
                 };
 
                 let id = self.id();
+
                 let tip = chain.tip();
                 let fork = tip.iter().any(|&b| chain[b].block.miner_id == id)
                     && tip.iter().any(|&b| chain[b].block.miner_id != id);
 
                 let block = Block {
                     id: block_id,
-                    parent_id: Some(parent),
+                    parent_id: Some(parent_id),
                     miner_id: id,
                     txns: None,
                 };

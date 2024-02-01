@@ -154,10 +154,8 @@ impl PowerDistribution {
             Self::SetMiner(miner_id, power) => {
                 let other = (1.0 - power) / (num_miners - 1) as PowerValue;
 
-                let mut dist = Vec::with_capacity(num_miners);
-                for i in 1..=num_miners {
-                    dist.push(if i == *miner_id { *power } else { other });
-                }
+                let mut dist = vec![other; num_miners];
+                dist[*miner_id - 1] = *power;
 
                 dist
             }

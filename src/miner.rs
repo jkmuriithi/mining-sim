@@ -2,26 +2,26 @@
 
 use std::fmt::Debug;
 
-use dyn_clone::DynClone;
-
 use crate::{
     block::{Block, BlockID},
     blockchain::Blockchain,
 };
 
 pub mod honest;
+pub mod honestforking;
 pub mod ndeficit;
 pub mod selfish;
 
 pub use honest::Honest;
+pub use honestforking::HonestForking;
 pub use ndeficit::NDeficit;
 pub use selfish::Selfish;
 
-/// A miner's unique identifier.
+/// Numeric type of each miner's unique identifier.
 pub type MinerID = usize;
 
 /// A blockchain miner with some strategy.
-pub trait Miner: Debug + DynClone + Send + Sync {
+pub trait Miner: Debug + dyn_clone::DynClone + Send + Sync {
     /// Get this miner's [MinerID].
     ///
     /// # Panics
@@ -55,10 +55,11 @@ dyn_clone::clone_trait_object!(Miner);
 /// An action taken by a miner on the chain.
 #[derive(Debug, Clone)]
 pub enum Action {
+    /// Don't publish a block.
     Wait,
+    /// Publish the given block.
     Publish(Block),
-    /// The blocks given in this action will be published in the given order,
-    /// but no parent-child relationships will be created between them during
-    /// this process.
+    /// Publish the given blocks in order. No parent-child relationships are
+    /// created during this process.
     PublishSet(Vec<Block>),
 }
