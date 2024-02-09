@@ -15,17 +15,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     let simulation = SimulationBuilder::new()
         .add_miner(Honest::with_tie_breaker(TieBreaker::Random))
         .add_miner(NDeficit::new(2))
-        .rounds(10000)
+        .rounds(1000000)
         .miner_power_iter(2, alpha)
-        .repeat_all(5)
         .build()?;
 
     let data = simulation.run_all()?;
 
     let results = data
-        .averaged()
         .revenue()
         .strategy_names()
+        .blocks_published()
+        .longest_chain_length()
         .mining_power_func(2, "Ideal NSM Revenue", nsm_rev)
         .mining_power_func(2, "Ideal SM Revenue", selfish_rev)
         .build();

@@ -167,7 +167,7 @@ impl NDeficit {
                 Action::Wait
             }
             [A(1), H(x), A(2..), ..] => {
-                assert!(*x < self.i);
+                assert!(*x <= self.i);
 
                 let ours = self.our_blocks.len();
                 let honest = self.honest_blocks.len();
@@ -176,16 +176,16 @@ impl NDeficit {
                     self.publish_all()
                 } else if ours - 1 == honest - x + 1 {
                     self.our_blocks.pop_front();
-
                     let path = self.block_path_to(self.honest_blocks[x - 1]);
                     self.capitulate(path.last().unwrap().id);
+
                     Action::PublishSet(path)
                 } else {
                     Action::Wait
                 }
             }
             [A(1), H(x), A(1), H(1)] => {
-                assert!(*x < self.i);
+                assert!(*x <= self.i);
 
                 // Manually capitulate to B_{1, 1}
                 let temp_x = *x;
