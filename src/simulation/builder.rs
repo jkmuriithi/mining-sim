@@ -56,21 +56,21 @@ impl SimulationBuilder {
 
     /// Set the initial blockchain state used in the simulation.
     /// ([Blockchain::default] used otherwise).
-    pub fn with_blockchain(mut self, chain: Blockchain) -> Self {
+    pub fn blockchain(mut self, chain: Blockchain) -> Self {
         self.blockchain = Some(chain);
 
         self
     }
 
     /// Set the number of rounds the simulation will last for (default 1).
-    pub fn with_rounds(mut self, rounds: usize) -> Self {
+    pub fn rounds(mut self, rounds: usize) -> Self {
         self.rounds = NonZeroUsize::new(rounds);
 
         self
     }
 
     /// Run the simulation using the specified mining power distribution.
-    pub fn with_power_dist(mut self, dist: PowerDistribution) -> Self {
+    pub fn power_dist(mut self, dist: PowerDistribution) -> Self {
         self.power_dists.push(dist);
 
         self
@@ -78,7 +78,7 @@ impl SimulationBuilder {
 
     /// Run the simulation using the mining power distribution described by
     /// `values`.
-    pub fn with_power_values<I>(mut self, values: I) -> Self
+    pub fn power_values<I>(mut self, values: I) -> Self
     where
         I: IntoIterator<Item = PowerValue>,
     {
@@ -90,7 +90,7 @@ impl SimulationBuilder {
 
     /// Run the simulation such that mining power is equally distributed
     /// between all miners (this is the default behavior).
-    pub fn with_equal_power(mut self) -> Self {
+    pub fn equal_power(mut self) -> Self {
         self.power_dists.push(PowerDistribution::Equal);
 
         self
@@ -100,20 +100,16 @@ impl SimulationBuilder {
     /// `value`, and mining power is distributed equally between all other
     /// miners. `miner` is a 1-based index over the miners that are added to
     /// this [SimulationBuilder], in the order of addition.
-    pub fn with_miner_power(
-        mut self,
-        miner: MinerID,
-        value: PowerValue,
-    ) -> Self {
+    pub fn miner_power(mut self, miner: MinerID, value: PowerValue) -> Self {
         self.power_dists
             .push(PowerDistribution::SetMiner(miner, value));
 
         self
     }
 
-    /// Call [SimulationBuilder::with_miner_power] once for each element of
+    /// Call [SimulationBuilder::miner_power] once for each element of
     /// `values`.
-    pub fn with_miner_power_iter<I>(mut self, miner: MinerID, values: I) -> Self
+    pub fn miner_power_iter<I>(mut self, miner: MinerID, values: I) -> Self
     where
         I: IntoIterator<Item = PowerValue>,
     {
@@ -125,7 +121,7 @@ impl SimulationBuilder {
         self
     }
 
-    /// Creates a [SimulationGroup] from the specified parameters.
+    /// Create a [SimulationGroup] from the specified parameters.
     pub fn build(self) -> Result<SimulationGroup, SimulationBuildError> {
         use SimulationBuildError::*;
 

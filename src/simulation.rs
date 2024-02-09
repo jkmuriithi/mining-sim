@@ -126,6 +126,7 @@ impl Simulation {
         for r in 1..=self.rounds {
             let proposer = gamma.sample(&mut rng) + 1;
 
+            // Always iterate through miners in list order
             for m in miners.iter_mut() {
                 let miner = m.id();
                 let block_id = if proposer == miner { Some(r) } else { None };

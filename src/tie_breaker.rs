@@ -1,6 +1,6 @@
 //! Describing tie-breaking behavior in miner strategies
 
-use rand::Rng;
+use rand::{seq::SliceRandom, Rng};
 
 use crate::{block::BlockID, blockchain::Blockchain, miner::MinerID};
 
@@ -18,6 +18,8 @@ pub enum TieBreaker {
     /// specified miner, if such a block exists. Otherwise, use the earliest
     /// block published by any *other* miner.
     FavorMinerProb(MinerID, f64),
+    /// Use a block picked uniformly at random.
+    Random,
 }
 
 impl TieBreaker {
@@ -25,6 +27,7 @@ impl TieBreaker {
     /// according to the given tie-breaking rule.
     pub fn choose(&self, blockchain: &Blockchain) -> BlockID {
         let tip = blockchain.tip();
+        let mut rng = rand::thread_rng();
 
         match &self {
             Self::EarliestPublished => tip[0],
@@ -63,7 +66,7 @@ impl TieBreaker {
                 match (favored, not_favored) {
                     (Some(block_id), None) | (None, Some(block_id)) => block_id,
                     (Some(favored), Some(not_favored)) => {
-                        if rand::thread_rng().gen_bool(*prob) {
+                        if rng.gen_bool(*prob) {
                             favored
                         } else {
                             not_favored
@@ -74,6 +77,7 @@ impl TieBreaker {
                     }
                 }
             }
+            Self::Random => *tip.choose(&mut rng).unwrap(),
         }
     }
 }

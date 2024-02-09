@@ -13,12 +13,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let alpha = (0..50).map(|n| n as PowerValue / 100.0);
     let simulation = SimulationBuilder::new()
-        .add_miner(Honest::with_tie_breaker(TieBreaker::FavorMinerProb(
-            2, GAMMA,
-        )))
+        .add_miner(Honest::with_tie_breaker(TieBreaker::Random))
         .add_miner(NDeficit::new(2))
-        .with_rounds(10000)
-        .with_miner_power_iter(2, alpha)
+        .rounds(10000)
+        .miner_power_iter(2, alpha)
         .repeat_all(5)
         .build()?;
 
@@ -26,10 +24,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let results = data
         .averaged()
-        .with_revenue()
-        .with_strategy_names()
-        .with_mining_power_func(2, "Ideal NSM Revenue", nsm_rev)
-        .with_mining_power_func(2, "Ideal SM Revenue", selfish_rev)
+        .revenue()
+        .strategy_names()
+        .mining_power_func(2, "Ideal NSM Revenue", nsm_rev)
+        .mining_power_func(2, "Ideal SM Revenue", selfish_rev)
         .build();
 
     println!("{}", results);

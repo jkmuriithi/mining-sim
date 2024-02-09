@@ -12,8 +12,9 @@ pub enum PowerDistribution {
     /// Weight each miner equally.
     #[default]
     Equal,
-    /// Set the specified miner's power to the given float in \[0, 1\], with
-    /// mining power distributed equally between all other miners.
+    /// Set the specified miner's power to some value between `0.0` and `1.0`
+    /// inclusive, with mining power distributed equally between all other
+    /// miners.
     SetMiner(MinerID, PowerValue),
     /// Set all mining power values to those in the given vector.
     SetValues(Vec<PowerValue>),

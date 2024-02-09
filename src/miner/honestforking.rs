@@ -1,6 +1,8 @@
+//! Honest miner implementation which randomly creates forks at the tip of the
+//! blockchain
+
 use rand::Rng;
 
-/// Simple honest miner which randomly creates forks in the blockchain
 use crate::{block::Block, tie_breaker::TieBreaker, Miner};
 
 use super::{Action, MinerID};

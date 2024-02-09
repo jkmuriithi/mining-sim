@@ -1,4 +1,4 @@
-//! Implementation of the Honest (or Frontier) mining strategy.
+//! Implementation of the Honest (or Frontier) mining strategy
 
 use crate::{
     block::{Block, BlockID},

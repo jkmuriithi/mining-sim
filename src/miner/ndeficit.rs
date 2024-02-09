@@ -9,7 +9,7 @@
 //  - move on to other parametric strategy spaces from Anthony's work after this
 //    one
 
-use std::{collections::VecDeque, num::NonZeroUsize};
+use std::collections::{HashSet, VecDeque};
 
 use crate::{
     block::{Block, BlockID},
@@ -21,47 +21,193 @@ use super::{Action, Miner, MinerID};
 
 #[derive(Debug, Clone, Default)]
 pub struct NDeficit {
-    capitulation: Option<BlockID>,
-    hidden_blocks: VecDeque<BlockID>,
-    i: Option<NonZeroUsize>,
+    i: usize,
     id: Option<MinerID>,
     tie_breaker: Option<TieBreaker>,
+
+    // Blockchain state tracking
+    capitulation: BlockID,
+    state: Vec<StateEntry>,
+    seen: HashSet<BlockID>,
+    our_blocks: VecDeque<BlockID>,
+    honest_blocks: Vec<BlockID>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum StateEntry {
+    /// Count of consecutive "attacker" (our) blocks
+    A(usize),
+    /// Count of consecutive "honest" (other) blocks
+    H(usize),
 }
 
 impl NDeficit {
     pub fn new(i: usize) -> Self {
         Self {
-            i: NonZeroUsize::new(i),
+            i,
             ..Default::default()
+        }
+    }
+
+    fn clear_state(&mut self) {
+        self.state.clear();
+        self.seen.clear();
+        self.our_blocks.clear();
+        self.honest_blocks.clear();
+    }
+
+    /// Capitulates to B_{0, 0} with `head` as the genesis block.
+    fn capitulate(&mut self, genesis: BlockID) {
+        self.capitulation = genesis;
+        self.clear_state();
+    }
+
+    fn update_state(&mut self, chain: &Blockchain, block: Option<&BlockID>) {
+        let tip = self.tie_breaker.unwrap().choose(chain);
+        let cap_height = chain[self.capitulation].height;
+
+        if !self.our_blocks.is_empty() {
+            let mut unseen_blocks = vec![];
+            let mut curr = tip;
+            while curr != self.capitulation && !self.seen.contains(&curr) {
+                // Clear state if we're no longer on the longest chain
+                if chain[curr].height <= cap_height {
+                    self.capitulate(tip);
+                    return;
+                }
+
+                unseen_blocks.push(curr);
+                self.seen.insert(curr);
+
+                curr = chain[curr].block.parent_id.unwrap();
+            }
+
+            if !unseen_blocks.is_empty() {
+                let unseen = unseen_blocks.len();
+
+                match self.state.last_mut() {
+                    Some(StateEntry::H(count)) => *count += unseen,
+                    _ => self.state.push(StateEntry::H(unseen)),
+                }
+
+                while let Some(block) = unseen_blocks.pop() {
+                    self.honest_blocks.push(block);
+                }
+            }
+        } else {
+            self.capitulation = tip;
+        }
+
+        if let Some(block_id) = block {
+            self.seen.insert(*block_id);
+            self.our_blocks.push_back(*block_id);
+
+            match self.state.last_mut() {
+                Some(StateEntry::A(count)) => *count += 1,
+                _ => self.state.push(StateEntry::A(1)),
+            }
         }
     }
 
     /// Returns a path of blocks from `parent` through all hidden blocks. Clears
     /// `self.hidden`.
-    fn make_block_path(&mut self, parent: BlockID) -> Vec<Block> {
-        let miner = self.id();
+    fn block_path_to(&mut self, parent: BlockID) -> Vec<Block> {
+        let miner_id = self.id();
 
         let mut blocks = vec![];
         let mut parent = parent;
-        for id in self.hidden_blocks.drain(..) {
+        self.our_blocks.drain(..).for_each(|id| {
             blocks.push({
                 Block {
                     id,
                     parent_id: Some(parent),
-                    miner_id: miner,
+                    miner_id,
                     txns: None,
                 }
             });
             parent = id;
-        }
+        });
 
         blocks
+    }
+
+    fn publish_all(&mut self) -> Action {
+        let path = self.block_path_to(self.capitulation);
+        self.capitulate(path.last().unwrap().id);
+        Action::PublishSet(path)
+    }
+
+    fn map_state(&mut self) -> Action {
+        use StateEntry::*;
+
+        // All non-empty states should be of the form [A(x), ..]
+        match &self.state[..] {
+            [] => Action::Wait,
+            [A(1)] => Action::Wait,
+            [A(2..), ..] => {
+                if self.our_blocks.len() == self.honest_blocks.len() + 1 {
+                    self.publish_all()
+                } else {
+                    Action::Wait
+                }
+            }
+            [A(1), H(x)] => {
+                if *x > self.i {
+                    self.capitulate(self.honest_blocks[x - 1]);
+                }
+
+                Action::Wait
+            }
+            [A(1), H(1), A(1)] => self.publish_all(),
+            [A(1), H(x), A(1)] => {
+                if *x > self.i {
+                    self.capitulate(self.honest_blocks[x - 1]);
+                }
+
+                Action::Wait
+            }
+            [A(1), H(x), A(2..), ..] => {
+                assert!(*x < self.i);
+
+                let ours = self.our_blocks.len();
+                let honest = self.honest_blocks.len();
+
+                if ours == honest + 1 {
+                    self.publish_all()
+                } else if ours - 1 == honest - x + 1 {
+                    self.our_blocks.pop_front();
+
+                    let path = self.block_path_to(self.honest_blocks[x - 1]);
+                    self.capitulate(path.last().unwrap().id);
+                    Action::PublishSet(path)
+                } else {
+                    Action::Wait
+                }
+            }
+            [A(1), H(x), A(1), H(1)] => {
+                assert!(*x < self.i);
+
+                // Manually capitulate to B_{1, 1}
+                let temp_x = *x;
+                self.state = vec![A(1), H(1)];
+
+                self.capitulation = self.honest_blocks[temp_x - 1];
+                self.our_blocks.pop_front();
+                self.honest_blocks.drain(..temp_x);
+                self.seen.clear();
+                self.seen.insert(self.our_blocks[0]);
+                self.seen.insert(self.honest_blocks[0]);
+
+                Action::Wait
+            }
+            _ => panic!("illegal n-deficit state: {:?}", &self.state),
+        }
     }
 }
 
 impl Miner for NDeficit {
     fn name(&self) -> String {
-        format!("{}-Deficit", self.i.unwrap().get())
+        format!("{}-Deficit", self.i)
     }
 
     fn id(&self) -> MinerID {
@@ -78,122 +224,31 @@ impl Miner for NDeficit {
         chain: &Blockchain,
         block: Option<BlockID>,
     ) -> super::Action {
-        if let Some(block_id) = block {
-            self.hidden_blocks.push_back(block_id);
-        }
+        self.update_state(chain, block.as_ref());
 
-        let id = self.id();
-        let n = self.i.expect("n greater than 0").get();
-        let capitulation = self.capitulation.unwrap_or(chain.genesis());
+        // Handle selfish mining fork case
+        if self.our_blocks.len() == 1 {
+            let miner_id = self.id();
+            let lc = chain.tip();
 
-        let tip = self.tie_breaker.unwrap().choose(chain);
+            let ours_at_lc =
+                lc.iter().find(|&&b| chain[b].block.miner_id == miner_id);
+            let othr_at_lc =
+                lc.iter().find(|&&b| chain[b].block.miner_id != miner_id);
 
-        // Handle states B_{0} and B_{0, 1} (and therefore B_{0, x})
-        if self.hidden_blocks.is_empty() {
-            self.capitulation = Some(tip);
-            return Action::Wait;
-        }
+            if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
+                let block_id = self.our_blocks[0];
+                self.capitulate(block_id);
 
-        // IDs of blocks after the capitulation block
-        let mut ids = vec![];
-        let mut curr = tip;
-        while chain[curr].height > chain[capitulation].height {
-            debug_assert!(chain[curr].block.miner_id != id);
-
-            ids.push(curr);
-            curr = chain[curr].block.parent_id.unwrap();
-        }
-        ids.reverse();
-
-        // Handle states B_{x, 0}
-        if ids.is_empty() {
-            return Action::Wait;
-        }
-
-        // Invariant: our chain of hidden blocks starts before any other blocks
-        assert!(self.hidden_blocks[0] < ids[0]);
-
-        // Merge hidden block ids with ids on the longest chain
-        let mut blocks_are_ours =
-            Vec::with_capacity(ids.len() + self.hidden_blocks.len());
-        let mut hidden_idx = 0;
-        let mut ids_idx = 0;
-        for _ in 0..(ids.len() + self.hidden_blocks.len()) {
-            if hidden_idx >= self.hidden_blocks.len() {
-                blocks_are_ours.push(false);
-                ids_idx += 1;
-            } else if ids_idx >= ids.len() {
-                blocks_are_ours.push(true);
-                hidden_idx += 1;
-            } else if self.hidden_blocks[hidden_idx] > ids[ids_idx] {
-                blocks_are_ours.push(false);
-                ids_idx += 1;
-            } else {
-                blocks_are_ours.push(true);
-                hidden_idx += 1;
+                return Action::Publish(Block {
+                    id: block_id,
+                    miner_id,
+                    parent_id: Some(*parent_id),
+                    txns: None,
+                });
             }
         }
 
-        // Build up alternating counts of attacker and honest blocks
-        // (essentially abbreviated state notation)
-        let mut counts = vec![];
-        let mut last_block_ours = false;
-        for curr_block_ours in blocks_are_ours {
-            if last_block_ours == curr_block_ours {
-                *counts.last_mut().unwrap() += 1;
-            } else {
-                counts.push(1);
-            }
-
-            last_block_ours = curr_block_ours;
-        }
-
-        match &counts[..] {
-            [1, x] | [1, x, ..] if *x > n => {
-                self.capitulation = Some(tip);
-                self.hidden_blocks.clear();
-                Action::Wait
-            }
-            // [1, 1] => { doesn't work
-            //     let next = self.hidden.pop_front().unwrap();
-            //     self.capitulation = Some(next);
-            //     Action::Publish(Block::new(next, Some(capitulation), id, None))
-            // }
-            [1, _] => Action::Wait,
-            [1, 1, 1] => {
-                self.capitulation = Some(*self.hidden_blocks.back().unwrap());
-                Action::PublishSet(self.make_block_path(capitulation))
-            }
-            [1, _, 1] => Action::Wait,
-            [1, _, 1, 1] => {
-                self.hidden_blocks.pop_front();
-                self.capitulation = Some(ids[ids.len() - 2]);
-                Action::Wait
-            }
-            [1, x, _] | [1, x, _, ..] => {
-                if self.hidden_blocks.len() == ids.len() + 1 {
-                    self.capitulation =
-                        Some(*self.hidden_blocks.back().unwrap());
-                    Action::PublishSet(self.make_block_path(capitulation))
-                } else if self.hidden_blocks.len() - 1 == ids.len() - x + 1 {
-                    self.hidden_blocks.pop_front();
-                    self.capitulation =
-                        Some(*self.hidden_blocks.back().unwrap());
-                    Action::PublishSet(self.make_block_path(ids[ids.len() - 1]))
-                } else {
-                    Action::Wait
-                }
-            }
-            [_, ..] => {
-                if self.hidden_blocks.len() == ids.len() + 1 {
-                    self.capitulation =
-                        Some(*self.hidden_blocks.back().unwrap());
-                    Action::PublishSet(self.make_block_path(capitulation))
-                } else {
-                    Action::Wait
-                }
-            }
-            _ => unreachable!("unrecognized state: {:?}", counts),
-        }
+        self.map_state()
     }
 }

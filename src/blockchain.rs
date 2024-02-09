@@ -2,9 +2,14 @@
 
 use std::{collections::HashMap, ops::Index};
 
-use crate::block::{Block, BlockID};
+use crate::{
+    block::{Block, BlockID},
+    miner::MinerID,
+};
 
-/// Representation of a public blockchain which miners can publish to.
+/// Representation of a public blockchain which miners can publish to. The
+/// genesis block of this chain will always have [BlockID] 0, and the genesis
+/// miner will always have [MinerID](crate::miner::MinerID) 0.
 #[derive(Debug, Clone)]
 pub struct Blockchain {
     genesis_id: BlockID,
@@ -36,11 +41,25 @@ pub enum BlockPublishingError {
 }
 
 impl Blockchain {
-    /// Creates a new blockchain containing a genesis block. The genesis block
-    /// has [BlockID] 0, and the (uninstantiated) genesis miner has [MinerID] 0.
+    pub const GENESIS_ID: BlockID = 0;
+
+    pub const GENESIS_MINER: MinerID = 0;
+
+    /// Creates a new blockchain containing a genesis block.     
     pub fn new() -> Self {
-        // Default BlockData matches the genesis block's BlockData
-        let blocks = HashMap::from([(0, BlockData::default())]);
+        let blocks = HashMap::from([(
+            Self::GENESIS_ID,
+            BlockData {
+                block: Block {
+                    id: Self::GENESIS_ID,
+                    parent_id: None,
+                    miner_id: Self::GENESIS_MINER,
+                    txns: None,
+                },
+                height: 0,
+                children: vec![],
+            },
+        )]);
 
         Blockchain {
             genesis_id: 0,
@@ -103,6 +122,7 @@ impl Blockchain {
     #[inline]
     pub fn longest_chain(&self) -> Vec<BlockID> {
         self.ancestors_of(self.blocks_by_height.last().unwrap()[0])
+        // &self.longest_chain
     }
 
     /// Maximum height of any block on the blockchain.
@@ -182,6 +202,8 @@ impl Blockchain {
         let height = parent_data.height + 1;
         if height > self.max_height {
             debug_assert!(height == self.max_height + 1);
+
+            // TODO: Update longest chain
 
             self.blocks_by_height.push(vec![block.id]);
             self.max_height = height;

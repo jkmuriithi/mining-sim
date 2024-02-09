@@ -9,7 +9,7 @@ use crate::{
 /// Floating point precision of output data.
 pub const FLOAT_PRECISION_DIGITS: usize = 6;
 
-/// Builder for [SimulationResults] struct. Typically produced by running a
+/// Builder for [SimulationResults]. Typically produced by running a
 /// [SimulationGroup](super::SimulationGroup).
 #[derive(Debug, Clone)]
 pub struct SimulationResultsBuilder {
@@ -39,6 +39,8 @@ impl SimulationResultsBuilder {
         }
     }
 
+    /// Average the results of repeated simulations and include the "Average Of"
+    /// column in the results table.
     pub fn averaged(mut self) -> Self {
         self.averaged = true;
         self.columns.insert(Column::AverageOf);
@@ -46,31 +48,37 @@ impl SimulationResultsBuilder {
         self
     }
 
-    pub fn with_blocks_published(mut self) -> Self {
+    /// Include the "Blocks Published" column in the results table.
+    pub fn blocks_published(mut self) -> Self {
         self.columns.insert(Column::BlocksPublished);
 
         self
     }
 
-    pub fn with_longest_chain_length(mut self) -> Self {
+    /// Include the "Longest Chain Length" column in the results table.
+    pub fn longest_chain_length(mut self) -> Self {
         self.columns.insert(Column::LongestChainLength);
 
         self
     }
 
-    pub fn with_mining_power_func(
+    /// Use the mining power of the miner with ID `miner_id` as input to `func`,
+    /// and present the output in a table column with the given title.
+    pub fn mining_power_func(
         mut self,
         miner_id: MinerID,
-        name: &'static str,
+        title: &'static str,
         func: fn(PowerValue) -> f64,
     ) -> Self {
         self.columns
-            .insert(Column::MiningPowerFunction(miner_id, name, func));
+            .insert(Column::MiningPowerFunction(miner_id, title, func));
 
         self
     }
 
-    pub fn with_strategy_names(mut self) -> Self {
+    /// Include a "Miner X Strategy Name" column in the results table for each
+    /// miner X.
+    pub fn strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
             self.columns.insert(Column::MinerStrategyName(miner_id));
@@ -79,7 +87,9 @@ impl SimulationResultsBuilder {
         self
     }
 
-    pub fn with_revenue(mut self) -> Self {
+    /// Include a "Miner X Revenue" column in the results table for each
+    /// miner X.
+    pub fn revenue(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
             self.columns.insert(Column::MinerRevenue(miner_id));
@@ -88,18 +98,21 @@ impl SimulationResultsBuilder {
         self
     }
 
-    pub fn with_rounds(mut self) -> Self {
+    /// Include the "Simulated Rounds" column in the results table.
+    pub fn rounds(mut self) -> Self {
         self.columns.insert(Column::Rounds);
 
         self
     }
 
-    pub fn with_format(mut self, format: OutputFormat) -> Self {
+    /// Specify the format of the results table.
+    pub fn output_format(mut self, format: OutputFormat) -> Self {
         self.format = format;
 
         self
     }
 
+    /// Create new [SimulationResults].
     pub fn build(self) -> SimulationResults {
         let SimulationResultsBuilder {
             averaged,
@@ -155,6 +168,8 @@ impl Default for SimulationResultsBuilder {
     }
 }
 
+/// Formatted results from the completion of a
+/// [SimulationGroup](super::SimulationGroup).
 pub struct SimulationResults {
     columns: Vec<Column>,
     format: OutputFormat,
@@ -245,7 +260,7 @@ impl Display for SimulationResults {
 /// Type of column that can appear in a data table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Column {
-    // Variant order determines the order of columns in output tables:
+    // Variant order determines the order of columns in results tables:
     // https://doc.rust-lang.org/stable/std/cmp/trait.PartialOrd.html#derivable
     MinerStrategyName(MinerID),
     MiningPower(MinerID),
