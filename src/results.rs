@@ -4,12 +4,13 @@ Defines data types which control the appearance of simulation results.
 # Formatting Results
 
 
+# Aggregating Results
 
 # Examples
 
 Creating [`SimulationResults`] after running a simulation group:
 ```
-use mining_sim::{miner, OutputFormat, SimulationBuilder};
+use mining_sim::{miner, Format, SimulationBuilder};
 
 let sim = SimulationBuilder::new()
     .add_miner(miner::Honest::new())
@@ -27,7 +28,7 @@ let results = results_builder
     // Include the number of rounds run per simulation
     .rounds()
     // Output results as CSV
-    .output_format(OutputFormat::CSV)
+    .format(Format::CSV)
     .build();
 
 println!("{}", results);
@@ -40,7 +41,7 @@ use rayon::prelude::*;
 
 use crate::{
     miner::MinerID, power_dist::PowerValue, simulation::SimulationOutput,
-    utils::WrappedFunc,
+    utils::WrapFunc, wrap,
 };
 
 /// Floating point precision of results data.
@@ -53,14 +54,14 @@ pub struct SimulationResultsBuilder {
     averaged: bool,
     columns: BTreeSet<Column>,
     data: Vec<SimulationOutput>,
-    format: OutputFormat,
+    format: Format,
     repeat_all: NonZeroUsize,
 }
 
 /// Describes the appearance of a [`SimulationResults`] table as given by its
 /// [`Display`] implementation.
 #[derive(Debug, Clone, Copy, Default)]
-pub enum OutputFormat {
+pub enum Format {
     /// Comma-separated, without extra whitespace.
     CSV,
     /// Human-readable.
@@ -69,7 +70,8 @@ pub enum OutputFormat {
 }
 
 impl SimulationResultsBuilder {
-    pub(super) fn new(
+    /// Create a new [`SimulationResultsBuilder`].
+    pub(crate) fn new(
         data: Vec<SimulationOutput>,
         repeat_all: NonZeroUsize,
     ) -> Self {
@@ -78,7 +80,7 @@ impl SimulationResultsBuilder {
             repeat_all,
             averaged: false,
             columns: BTreeSet::default(),
-            format: OutputFormat::default(),
+            format: Format::default(),
         }
     }
 
@@ -121,7 +123,7 @@ impl SimulationResultsBuilder {
         T: Into<String>,
     {
         self.columns
-            .insert(Column::Constant(WrappedFunc::new(title, move |_| value)));
+            .insert(Column::Constant(wrap!(title, move |_| value)));
 
         self
     }
@@ -145,10 +147,8 @@ impl SimulationResultsBuilder {
         T: Into<String>,
         F: Fn(PowerValue) -> f64 + Send + Sync + 'static,
     {
-        self.columns.insert(Column::MiningPowerFunction(
-            miner_id,
-            WrappedFunc::new(title, func),
-        ));
+        self.columns
+            .insert(Column::MiningPowerFunction(miner_id, wrap!(title, func)));
 
         self
     }
@@ -182,8 +182,8 @@ impl SimulationResultsBuilder {
         self
     }
 
-    /// Specify the format of the results table.
-    pub fn output_format(mut self, format: OutputFormat) -> Self {
+    /// Specify the [`Format`] of the results table.
+    pub fn format(mut self, format: Format) -> Self {
         self.format = format;
 
         self
@@ -235,10 +235,10 @@ impl SimulationResultsBuilder {
 
 /// Formatted results from the completion of a
 /// [`SimulationGroup`](super::SimulationGroup). The results table is given by the
-/// struct's [`Display`] implementation, as specified by its [`OutputFormat`].
+/// struct's [`Display`] implementation, as specified by its [`Format`].
 pub struct SimulationResults {
     columns: Vec<Column>,
-    format: OutputFormat,
+    format: Format,
     rows: Vec<Vec<ColumnValue>>,
 }
 
@@ -246,11 +246,11 @@ impl SimulationResults {
     const SEPARATOR_VERTICAL: char = '|';
     const SEPARATOR_HORIZONTAL: char = '-';
 
-    pub fn format(&self) -> OutputFormat {
+    pub fn format(&self) -> Format {
         self.format
     }
 
-    pub fn set_format(&mut self, format: OutputFormat) {
+    pub fn set_format(&mut self, format: Format) {
         self.format = format;
     }
 }
@@ -264,7 +264,7 @@ impl Display for SimulationResults {
             .collect();
 
         match self.format {
-            OutputFormat::CSV => {
+            Format::CSV => {
                 write!(f, "{}", titles.join(","))?;
 
                 for row in self.rows.iter() {
@@ -276,7 +276,7 @@ impl Display for SimulationResults {
                     write!(f, "{}", row.join(","))?;
                 }
             }
-            OutputFormat::PrettyPrint => {
+            Format::PrettyPrint => {
                 let mut text_widths: Vec<_> =
                     titles.iter().map(|title| title.len()).collect();
 
@@ -331,8 +331,8 @@ enum Column {
     MinerStrategyName(MinerID),
     MiningPower(MinerID),
     MinerRevenue(MinerID),
-    MiningPowerFunction(MinerID, WrappedFunc<PowerValue, f64>),
-    Constant(WrappedFunc<(), f64>),
+    MiningPowerFunction(MinerID, WrapFunc<PowerValue, f64>),
+    Constant(WrapFunc<(), f64>),
     Rounds,
     AverageOf,
     BlocksPublished,

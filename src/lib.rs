@@ -30,19 +30,10 @@ pub mod block;
 pub mod blockchain;
 pub mod miner;
 pub mod power_dist;
+pub mod prelude;
+pub mod results;
 pub mod simulation;
 pub mod tie_breaker;
 pub mod transaction;
 
 pub(crate) mod utils;
-
-pub use blockchain::{BlockPublishingError, Blockchain};
-
-pub use miner::Miner;
-
-pub use power_dist::{PowerDistribution, PowerDistributionError, PowerValue};
-
-pub use simulation::{
-    OutputFormat, SimulationBuildError, SimulationBuilder, SimulationGroup,
-    SimulationOutput, SimulationResults, SimulationResultsBuilder,
-};

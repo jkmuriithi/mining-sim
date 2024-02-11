@@ -112,15 +112,15 @@ impl Blockchain {
         self.blocks.len()
     }
 
-    /// Returns the IDs of all blocks on the longest chain, where the tip of the
-    /// longest chain is defined as the earliest block published at
-    /// [`Blockchain::max_height`].
+    /// Returns an iterator over the IDs of all blocks on the longest chain,
+    /// where the tip of the longest chain is defined as the earliest block
+    /// published at [`Blockchain::max_height`].
+    ///
+    /// Blocks are iterated over in descending order of height.
     #[inline]
-    pub fn longest_chain(&self) -> Vec<BlockID> {
-        // &self.longest_chain
-
+    pub fn longest_chain(&self) -> Ancestors<'_> {
         let lc = self.blocks_by_height[self.max_height][0];
-        self.ancestors_of(lc).unwrap()
+        Ancestors::new(self, lc)
     }
 
     /// Returns the IDs of all blocks at the tip of the longest
@@ -131,25 +131,14 @@ impl Blockchain {
         self.blocks_by_height.last().unwrap()
     }
 
-    /// Returns the IDs of all blocks on the path from the given block ID to the
-    /// genesis block, in ascending order of height and including the given
-    /// block ID. Returns `None` only if the blockchain does not contain a block
-    /// with ID `id`.
-    pub fn ancestors_of(&self, id: BlockID) -> Option<Vec<BlockID>> {
-        if self.contains(id) {
-            let mut ancestors = vec![id];
-
-            let mut curr = id;
-            while curr != self.genesis_id {
-                curr = self.blocks[&curr].block.parent_id.unwrap();
-                ancestors.push(curr);
-            }
-
-            ancestors.reverse();
-            Some(ancestors)
-        } else {
-            None
-        }
+    /// Returns an iterator over the IDs of all blocks on the path from the
+    /// given block ID to the genesis block, in descending order of height and
+    /// including the given block ID.     
+    ///
+    /// If the blockchain does not contain a block with [`BlockID`] `id`, the
+    /// iterator will be empty.
+    pub fn ancestors_of(&self, id: BlockID) -> Ancestors<'_> {
+        Ancestors::new(self, id)
     }
 
     /// Adds the given block to the blockchain.
@@ -192,8 +181,6 @@ impl Blockchain {
         if height > self.max_height {
             debug_assert!(height == self.max_height + 1);
 
-            // TODO: Update longest chain
-
             self.blocks_by_height.push(vec![block.id]);
             self.max_height = height;
         } else {
@@ -235,6 +222,39 @@ impl Index<&BlockID> for Blockchain {
     }
 }
 
+/// Iterator over the ancestors of a block on a [`Blockchain`] in descending
+/// order of height.
+///
+/// See the [`ancestors_of`](Blockchain::ancestors_of) method of [`Blockchain`]
+/// for more information.
+pub struct Ancestors<'a> {
+    curr_id: Option<BlockID>,
+    chain: &'a Blockchain,
+}
+
+impl<'a> Ancestors<'a> {
+    fn new(chain: &'a Blockchain, start: BlockID) -> Self {
+        Self {
+            curr_id: chain.blocks.contains_key(&start).then_some(start),
+            chain,
+        }
+    }
+}
+
+impl<'a> Iterator for Ancestors<'a> {
+    type Item = BlockID;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.curr_id {
+            Some(block_id) => {
+                self.curr_id = self.chain.blocks[&block_id].block.parent_id;
+                Some(block_id)
+            }
+            None => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Blockchain;
@@ -242,7 +262,7 @@ mod tests {
     #[test]
     fn new_instance_longest_chain() {
         let chain = Blockchain::new();
-        let lc = chain.longest_chain();
+        let lc: Vec<_> = chain.longest_chain().collect();
 
         assert_eq!(lc.len(), 1);
         assert_eq!(lc[0], chain.blocks_by_height[0][0]);

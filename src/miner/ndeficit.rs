@@ -68,9 +68,11 @@ impl NDeficit {
 
         if !self.our_blocks.is_empty() {
             let mut unseen_blocks = vec![];
-            let mut curr = tip;
-            while curr != self.capitulation && !self.seen.contains(&curr) {
-                // Clear state if we're no longer on the longest chain
+
+            for curr in chain.ancestors_of(tip) {
+                if curr == self.capitulation || self.seen.contains(&curr) {
+                    break;
+                }
                 if chain[curr].height <= cap_height {
                     self.capitulate(tip);
                     return;
@@ -78,8 +80,6 @@ impl NDeficit {
 
                 unseen_blocks.push(curr);
                 self.seen.insert(curr);
-
-                curr = chain[curr].block.parent_id.unwrap();
             }
 
             if !unseen_blocks.is_empty() {
@@ -95,6 +95,10 @@ impl NDeficit {
                 }
             }
         } else {
+            debug_assert!(self.state.is_empty());
+            debug_assert!(self.seen.is_empty());
+            debug_assert!(self.honest_blocks.is_empty());
+
             self.capitulation = tip;
         }
 
@@ -227,6 +231,8 @@ impl Miner for NDeficit {
         self.update_state(chain, block.as_ref());
 
         // Handle selfish mining fork case
+        // FIXME: Forks are never encountered when up against an honest miner,
+        // may need to implement "aggressive" strategy
         // if self.our_blocks.len() == 1 {
         //     let miner_id = self.id();
         //     let lc = chain.tip();
