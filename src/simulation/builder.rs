@@ -1,3 +1,5 @@
+//! Definitions for [SimulationBuilder]
+
 use std::num::NonZeroUsize;
 
 use crate::{
@@ -9,7 +11,6 @@ use crate::{
 use super::SimulationGroup;
 
 /// Builds up a set of simulations based on the configuration parameters.
-/// TODO: Explain methods and write example code.
 #[derive(Debug, Default)]
 pub struct SimulationBuilder {
     blockchain: Option<Blockchain>,

@@ -9,7 +9,7 @@ use crate::{
 
 /// Representation of a public blockchain which miners can publish to. The
 /// genesis block of this chain will always have [BlockID] 0, and the genesis
-/// miner will always have [MinerID](crate::miner::MinerID) 0.
+/// miner will always have [MinerID] 0.
 #[derive(Debug, Clone)]
 pub struct Blockchain {
     genesis_id: BlockID,
@@ -69,20 +69,11 @@ impl Blockchain {
         }
     }
 
-    /// Returns the IDs of all blocks at the specified height.
-    ///
-    /// # Panics
-    /// Panics if `index` is greater than [Blockchain::max_height].
+    /// Returns the IDs of all blocks at the specified height, in the order
+    /// that they were published to the blockchain.
     #[inline]
-    pub fn at_height(&self, index: usize) -> &[BlockID] {
-        debug_assert!(
-            index <= self.max_height,
-            "{} exceeds the maximum height {} of the chain",
-            index,
-            self.max_height
-        );
-
-        &self.blocks_by_height[index]
+    pub fn at_height(&self, height: usize) -> Option<&[BlockID]> {
+        self.blocks_by_height.get(height).map(|v| v.as_slice())
     }
 
     /// Returns true if a block with [BlockID] `id` is on the chain.
@@ -109,10 +100,15 @@ impl Blockchain {
         self.blocks.get(&id).and_then(|opt| opt.block.parent_id)
     }
 
+    /// Maximum height of any block on the blockchain.
+    #[inline]
+    pub fn max_height(&self) -> usize {
+        self.max_height
+    }
+
     /// Returns the number of blocks published to the blockchain.
     #[inline]
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
+    pub fn num_blocks(&self) -> usize {
         self.blocks.len()
     }
 
@@ -121,17 +117,15 @@ impl Blockchain {
     /// [Blockchain::max_height].
     #[inline]
     pub fn longest_chain(&self) -> Vec<BlockID> {
-        self.ancestors_of(self.blocks_by_height.last().unwrap()[0])
         // &self.longest_chain
+
+        let lc = self.blocks_by_height[self.max_height][0];
+        self.ancestors_of(lc).unwrap()
     }
 
-    /// Maximum height of any block on the blockchain.
-    #[inline]
-    pub fn max_height(&self) -> usize {
-        self.max_height
-    }
-
-    /// Returns the IDs of all blocks at the tip of the longest chain.
+    /// Returns the IDs of all blocks at the tip of the longest
+    /// chain. Equivalent to [Blockchain::at_height] called with
+    /// [Blockchain::max_height].
     #[inline]
     pub fn tip(&self) -> &[BlockID] {
         self.blocks_by_height.last().unwrap()
@@ -139,28 +133,23 @@ impl Blockchain {
 
     /// Returns the IDs of all blocks on the path from the given block ID to the
     /// genesis block, in ascending order of height and including the given
-    /// block ID.
-    ///
-    /// # Panics
-    /// If a block with [BlockID] `id` is not present on the chain.
-    // TODO: Investigate ways of optimizing this loop
-    pub fn ancestors_of(&self, id: BlockID) -> Vec<BlockID> {
-        debug_assert!(
-            self.contains(id),
-            "blockchain does not contain a block with ID: {:?}",
-            id
-        );
+    /// block ID. Returns `None` only if the blockchain does not contain a block
+    /// with ID `id`.
+    pub fn ancestors_of(&self, id: BlockID) -> Option<Vec<BlockID>> {
+        if self.contains(id) {
+            let mut ancestors = vec![id];
 
-        let mut ancestors = vec![id];
+            let mut curr = id;
+            while curr != self.genesis_id {
+                curr = self.blocks[&curr].block.parent_id.unwrap();
+                ancestors.push(curr);
+            }
 
-        let mut curr = id;
-        while curr != self.genesis_id {
-            curr = self.blocks[&curr].block.parent_id.unwrap();
-            ancestors.push(curr);
+            ancestors.reverse();
+            Some(ancestors)
+        } else {
+            None
         }
-
-        ancestors.reverse();
-        ancestors
     }
 
     /// Adds the given block to the blockchain.
@@ -230,19 +219,19 @@ impl Default for Blockchain {
     }
 }
 
-impl Index<&BlockID> for Blockchain {
-    type Output = BlockData;
-
-    fn index(&self, index: &BlockID) -> &Self::Output {
-        self.blocks.index(index)
-    }
-}
-
 impl Index<BlockID> for Blockchain {
     type Output = BlockData;
 
     fn index(&self, index: BlockID) -> &Self::Output {
         self.blocks.index(&index)
+    }
+}
+
+impl Index<&BlockID> for Blockchain {
+    type Output = BlockData;
+
+    fn index(&self, index: &BlockID) -> &Self::Output {
+        self.blocks.index(index)
     }
 }
 

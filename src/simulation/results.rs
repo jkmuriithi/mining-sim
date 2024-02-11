@@ -1,9 +1,12 @@
+//! Definitions for [SimulationResultsBuilder] and [SimulationResults]
+
 use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
 
 use rayon::prelude::*;
 
 use crate::{
     miner::MinerID, power_dist::PowerValue, simulation::SimulationOutput,
+    utils::WrappedFunc,
 };
 
 /// Floating point precision of output data.
@@ -39,6 +42,20 @@ impl SimulationResultsBuilder {
         }
     }
 
+    /// Include the "Blocks Published", "Longest Chain Length",
+    /// "Miner _ Strategy Name", "Miner _ Revenue", and "Simulated Rounds"
+    /// columns.
+    ///
+    /// NOTE: `.averaged()` must still be called separately to create averaged
+    /// data
+    pub fn all(self) -> Self {
+        self.blocks_published()
+            .longest_chain_length()
+            .strategy_names()
+            .revenue()
+            .rounds()
+    }
+
     /// Average the results of repeated simulations and include the "Average Of"
     /// column in the results table.
     pub fn averaged(mut self) -> Self {
@@ -68,16 +85,18 @@ impl SimulationResultsBuilder {
         mut self,
         miner_id: MinerID,
         title: &'static str,
-        func: fn(PowerValue) -> f64,
+        func: impl Fn(PowerValue) -> f64 + Send + Sync + 'static,
     ) -> Self {
-        self.columns
-            .insert(Column::MiningPowerFunction(miner_id, title, func));
+        self.columns.insert(Column::MiningPowerFunction(
+            miner_id,
+            WrappedFunc::new(title, func),
+        ));
 
         self
     }
 
-    /// Include a "Miner X Strategy Name" column in the results table for each
-    /// miner X.
+    /// Include a "Miner *X* Strategy Name" column in the results table for each
+    /// miner *X*.
     pub fn strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
@@ -87,8 +106,8 @@ impl SimulationResultsBuilder {
         self
     }
 
-    /// Include a "Miner X Revenue" column in the results table for each
-    /// miner X.
+    /// Include a "Miner *X* Revenue" column in the results table for each
+    /// miner *X*.
     pub fn revenue(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
@@ -258,14 +277,14 @@ impl Display for SimulationResults {
 }
 
 /// Type of column that can appear in a data table.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Column {
     // Variant order determines the order of columns in results tables:
     // https://doc.rust-lang.org/stable/std/cmp/trait.PartialOrd.html#derivable
     MinerStrategyName(MinerID),
     MiningPower(MinerID),
     MinerRevenue(MinerID),
-    MiningPowerFunction(MinerID, &'static str, fn(PowerValue) -> f64),
+    MiningPowerFunction(MinerID, WrappedFunc<PowerValue, f64>),
     Rounds,
     AverageOf,
     BlocksPublished,
@@ -305,7 +324,7 @@ impl Column {
     fn get_value(&self, output: &SimulationOutput) -> ColumnValue {
         match &self {
             Self::BlocksPublished => {
-                let num = output.blockchain.len() as f64;
+                let num = output.blockchain.num_blocks() as f64;
 
                 ColumnValue::BlocksPublished(num)
             }
@@ -315,20 +334,25 @@ impl Column {
                 ColumnValue::MinerStrategyName(name)
             }
             Self::MiningPower(miner_id) => {
-                let power = output
-                    .power_dist
-                    .power_of(*miner_id, output.miners.len())
-                    .expect("valid power distribution");
+                // Safety: power distributions are validated during the build
+                // step of the simulation pipeline
+                let power = unsafe {
+                    output
+                        .power_dist
+                        .power_of_unchecked(*miner_id, output.miners.len())
+                };
 
                 ColumnValue::MiningPower(power)
             }
-            Self::MiningPowerFunction(miner_id, _, func) => {
-                let power = output
-                    .power_dist
-                    .power_of(*miner_id, output.miners.len())
-                    .expect("valid power distribution");
-
-                let value = func(power);
+            Self::MiningPowerFunction(miner_id, func) => {
+                // Safety: power distributions are validated during the build
+                // step of the simulation pipeline
+                let power = unsafe {
+                    output
+                        .power_dist
+                        .power_of_unchecked(*miner_id, output.miners.len())
+                };
+                let value = func.call(power);
 
                 ColumnValue::MiningPowerFunction(value)
             }
@@ -360,7 +384,7 @@ impl Column {
             Self::BlocksPublished => {
                 let mut num = data
                     .iter()
-                    .map(|sim_output| sim_output.blockchain.len() as f64)
+                    .map(|sim_output| sim_output.blockchain.num_blocks() as f64)
                     .sum();
                 num /= data.len() as f64;
 
@@ -392,7 +416,7 @@ impl Column {
             // otherwise use the first simulation's value
             Self::MinerStrategyName(_)
             | Self::MiningPower(_)
-            | Self::MiningPowerFunction(_, _, _)
+            | Self::MiningPowerFunction(_, _)
             | Self::Rounds => self.get_value(&data[0]),
         }
     }
@@ -413,8 +437,8 @@ impl Display for Column {
             Self::MiningPower(miner_id) => {
                 write!(f, "Miner {} Power", miner_id)
             }
-            Self::MiningPowerFunction(_, name, _) => {
-                write!(f, "{}", name)
+            Self::MiningPowerFunction(_, func) => {
+                write!(f, "{}", func.name())
             }
             Self::MinerRevenue(miner_id) => {
                 write!(f, "Miner {} Revenue", miner_id)
