@@ -119,7 +119,9 @@ impl Simulation {
         } = self;
 
         let mut rng = rand::thread_rng();
-        let power_values = power_dist.values(miners.len())?;
+        // Safety: power distributions are validated during the simulation
+        // build process, and there's no other way a user can create this struct
+        let power_values = unsafe { power_dist.values_unchecked(miners.len()) };
         let gamma = WeightedIndex::new(power_values)?;
 
         let mut blocks_by_miner: HashMap<MinerID, Vec<_>> = HashMap::new();

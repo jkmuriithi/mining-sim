@@ -33,7 +33,7 @@ pub struct NDeficit {
     honest_blocks: Vec<BlockID>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum StateEntry {
     /// Count of consecutive "attacker" (our) blocks
     A(usize),
@@ -167,7 +167,7 @@ impl NDeficit {
                 Action::Wait
             }
             [A(1), H(x), A(2..), ..] => {
-                assert!(*x <= self.i);
+                debug_assert!(*x <= self.i);
 
                 let ours = self.our_blocks.len();
                 let honest = self.honest_blocks.len();
@@ -185,15 +185,15 @@ impl NDeficit {
                 }
             }
             [A(1), H(x), A(1), H(1)] => {
-                assert!(*x <= self.i);
+                debug_assert!(*x <= self.i);
+
+                let x = *x;
 
                 // Manually capitulate to B_{1, 1}
-                let temp_x = *x;
                 self.state = vec![A(1), H(1)];
-
-                self.capitulation = self.honest_blocks[temp_x - 1];
+                self.capitulation = self.honest_blocks[x - 1];
                 self.our_blocks.pop_front();
-                self.honest_blocks.drain(..temp_x);
+                self.honest_blocks.drain(..x);
                 self.seen.clear();
                 self.seen.insert(self.our_blocks[0]);
                 self.seen.insert(self.honest_blocks[0]);
@@ -251,4 +251,14 @@ impl Miner for NDeficit {
 
         self.map_state()
     }
+}
+
+/// Ideal Nothing-At-Stake miner revenue function from Weinberg and Ferrera's
+/// paper. To be used with
+/// [SimulationResultsBuilder::mining_power_func] (crate::SimulationResultsBuilder).
+pub fn nsm_revenue(a: crate::PowerValue) -> f64 {
+    (4.0 * a.powi(2) - 8.0 * a.powi(3) - a.powi(4) + 7.0 * a.powi(5)
+        - 3.0 * a.powi(6))
+        / (1.0 - a - 2.0 * a.powi(2) + 3.0 * a.powi(4) - 3.0 * a.powi(5)
+            + a.powi(6))
 }

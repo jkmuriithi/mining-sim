@@ -10,11 +10,13 @@ use crate::{
 pub mod honest;
 pub mod honestforking;
 pub mod ndeficit;
+pub mod noop;
 pub mod selfish;
 
 pub use honest::Honest;
 pub use honestforking::HonestForking;
 pub use ndeficit::NDeficit;
+pub use noop::Noop;
 pub use selfish::Selfish;
 
 /// Numeric type of each miner's unique identifier.
