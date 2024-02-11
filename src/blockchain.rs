@@ -8,8 +8,8 @@ use crate::{
 };
 
 /// Representation of a public blockchain which miners can publish to. The
-/// genesis block of this chain will always have [BlockID] 0, and the genesis
-/// miner will always have [MinerID] 0.
+/// genesis block of this chain will always have [`BlockID`] 0, and the genesis
+/// miner will always have [`MinerID`] 0.
 #[derive(Debug, Clone)]
 pub struct Blockchain {
     genesis_id: BlockID,
@@ -18,7 +18,7 @@ pub struct Blockchain {
     blocks_by_height: Vec<Vec<BlockID>>,
 }
 
-/// A block and its metadata as stored in a [Blockchain].
+/// A block and its metadata as stored in a [`Blockchain`].
 #[derive(Debug, Default, Clone)]
 pub struct BlockData {
     pub block: Block,
@@ -76,7 +76,7 @@ impl Blockchain {
         self.blocks_by_height.get(height).map(|v| v.as_slice())
     }
 
-    /// Returns true if a block with [BlockID] `id` is on the chain.
+    /// Returns true if a block with [`BlockID`] `id` is on the chain.
     #[inline]
     pub fn contains(&self, id: BlockID) -> bool {
         self.blocks.contains_key(&id)
@@ -88,7 +88,7 @@ impl Blockchain {
         self.genesis_id
     }
 
-    /// Returns a reference to the [BlockData] associated with `id`.
+    /// Returns a reference to the [`BlockData`] associated with `id`.
     #[inline]
     pub fn get(&self, id: BlockID) -> Option<&BlockData> {
         self.blocks.get(&id)
@@ -114,7 +114,7 @@ impl Blockchain {
 
     /// Returns the IDs of all blocks on the longest chain, where the tip of the
     /// longest chain is defined as the earliest block published at
-    /// [Blockchain::max_height].
+    /// [`Blockchain::max_height`].
     #[inline]
     pub fn longest_chain(&self) -> Vec<BlockID> {
         // &self.longest_chain
@@ -124,8 +124,8 @@ impl Blockchain {
     }
 
     /// Returns the IDs of all blocks at the tip of the longest
-    /// chain. Equivalent to [Blockchain::at_height] called with
-    /// [Blockchain::max_height].
+    /// chain. Equivalent to [`Blockchain::at_height`] called with
+    /// [`Blockchain::max_height`].
     #[inline]
     pub fn tip(&self) -> &[BlockID] {
         self.blocks_by_height.last().unwrap()

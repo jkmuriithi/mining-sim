@@ -1,4 +1,38 @@
-//! Definitions for [SimulationResultsBuilder] and [SimulationResults]
+/*!
+Defines data types which control the appearance of simulation results.
+
+# Formatting Results
+
+
+
+# Examples
+
+Creating [`SimulationResults`] after running a simulation group:
+```
+use mining_sim::{miner, OutputFormat, SimulationBuilder};
+
+let sim = SimulationBuilder::new()
+    .add_miner(miner::Honest::new())
+    .add_miner(miner::Honest::new())
+    .repeat_all(5)
+    .power_values([0.1, 0.9])
+    .build()
+    .unwrap();
+
+let results_builder = sim.run_all().unwrap();
+
+let results = results_builder
+    // Average results of repeated simulations
+    .averaged()
+    // Include the number of rounds run per simulation
+    .rounds()
+    // Output results as CSV
+    .output_format(OutputFormat::CSV)
+    .build();
+
+println!("{}", results);
+```
+*/
 
 use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
 
@@ -9,11 +43,11 @@ use crate::{
     utils::WrappedFunc,
 };
 
-/// Floating point precision of output data.
+/// Floating point precision of results data.
 pub const FLOAT_PRECISION_DIGITS: usize = 6;
 
-/// Builder for [SimulationResults]. Typically produced by running a
-/// [SimulationGroup](super::SimulationGroup).
+/// Builder for [`SimulationResults`]. Typically produced by running a
+/// [`SimulationGroup`](super::SimulationGroup).
 #[derive(Debug, Clone)]
 pub struct SimulationResultsBuilder {
     averaged: bool,
@@ -23,9 +57,13 @@ pub struct SimulationResultsBuilder {
     repeat_all: NonZeroUsize,
 }
 
+/// Describes the appearance of a [`SimulationResults`] table as given by its
+/// [`Display`] implementation.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum OutputFormat {
+    /// Comma-separated, without extra whitespace.
     CSV,
+    /// Human-readable.
     #[default]
     PrettyPrint,
 }
@@ -38,16 +76,18 @@ impl SimulationResultsBuilder {
         Self {
             data,
             repeat_all,
-            ..Default::default()
+            averaged: false,
+            columns: BTreeSet::default(),
+            format: OutputFormat::default(),
         }
     }
 
     /// Include the "Blocks Published", "Longest Chain Length",
-    /// "Miner _ Strategy Name", "Miner _ Revenue", and "Simulated Rounds"
+    /// "Miner `X` Strategy Name", "Miner `X` Revenue", and "Simulated Rounds"
     /// columns.
     ///
-    /// NOTE: `.averaged()` must still be called separately to create averaged
-    /// data
+    /// [`SimulationResultsBuilder::averaged`] must still be called separately
+    /// to create averaged data.
     pub fn all(self) -> Self {
         self.blocks_published()
             .longest_chain_length()
@@ -59,8 +99,10 @@ impl SimulationResultsBuilder {
     /// Average the results of repeated simulations and include the "Average Of"
     /// column in the results table.
     pub fn averaged(mut self) -> Self {
-        self.averaged = true;
-        self.columns.insert(Column::AverageOf);
+        if self.repeat_all.get() > 1 {
+            self.averaged = true;
+            self.columns.insert(Column::AverageOf);
+        }
 
         self
     }
@@ -68,6 +110,18 @@ impl SimulationResultsBuilder {
     /// Include the "Blocks Published" column in the results table.
     pub fn blocks_published(mut self) -> Self {
         self.columns.insert(Column::BlocksPublished);
+
+        self
+    }
+
+    /// Include a column with title `title` which only contains the given
+    /// value.
+    pub fn constant<T>(mut self, title: T, value: f64) -> Self
+    where
+        T: Into<String>,
+    {
+        self.columns
+            .insert(Column::Constant(WrappedFunc::new(title, move |_| value)));
 
         self
     }
@@ -81,12 +135,16 @@ impl SimulationResultsBuilder {
 
     /// Use the mining power of the miner with ID `miner_id` as input to `func`,
     /// and present the output in a table column with the given title.
-    pub fn mining_power_func(
+    pub fn mining_power_func<T, F>(
         mut self,
         miner_id: MinerID,
-        title: &'static str,
-        func: impl Fn(PowerValue) -> f64 + Send + Sync + 'static,
-    ) -> Self {
+        title: T,
+        func: F,
+    ) -> Self
+    where
+        T: Into<String>,
+        F: Fn(PowerValue) -> f64 + Send + Sync + 'static,
+    {
         self.columns.insert(Column::MiningPowerFunction(
             miner_id,
             WrappedFunc::new(title, func),
@@ -95,8 +153,8 @@ impl SimulationResultsBuilder {
         self
     }
 
-    /// Include a "Miner *X* Strategy Name" column in the results table for each
-    /// miner *X*.
+    /// Include a "Miner `X` Strategy Name" column in the results table for each
+    /// miner `X`.
     pub fn strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
@@ -106,8 +164,8 @@ impl SimulationResultsBuilder {
         self
     }
 
-    /// Include a "Miner *X* Revenue" column in the results table for each
-    /// miner *X*.
+    /// Include a "Miner `X` Revenue" column in the results table for each
+    /// miner `X`.
     pub fn revenue(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
@@ -131,7 +189,7 @@ impl SimulationResultsBuilder {
         self
     }
 
-    /// Create new [SimulationResults].
+    /// Create new [`SimulationResults`].
     pub fn build(self) -> SimulationResults {
         let SimulationResultsBuilder {
             averaged,
@@ -175,20 +233,9 @@ impl SimulationResultsBuilder {
     }
 }
 
-impl Default for SimulationResultsBuilder {
-    fn default() -> Self {
-        Self {
-            averaged: Default::default(),
-            columns: Default::default(),
-            data: Default::default(),
-            format: Default::default(),
-            repeat_all: NonZeroUsize::new(1).unwrap(),
-        }
-    }
-}
-
 /// Formatted results from the completion of a
-/// [SimulationGroup](super::SimulationGroup).
+/// [`SimulationGroup`](super::SimulationGroup). The results table is given by the
+/// struct's [`Display`] implementation, as specified by its [`OutputFormat`].
 pub struct SimulationResults {
     columns: Vec<Column>,
     format: OutputFormat,
@@ -285,19 +332,21 @@ enum Column {
     MiningPower(MinerID),
     MinerRevenue(MinerID),
     MiningPowerFunction(MinerID, WrappedFunc<PowerValue, f64>),
+    Constant(WrappedFunc<(), f64>),
     Rounds,
     AverageOf,
     BlocksPublished,
     LongestChainLength,
 }
 
-/// Value which corresponds to a [Column].
+/// Value which corresponds to a [`Column`].
 #[derive(Debug, Clone)]
 enum ColumnValue {
     MinerStrategyName(String),
     MiningPower(PowerValue),
     MinerRevenue(f64),
     MiningPowerFunction(f64),
+    Constant(f64),
     Rounds(usize),
     AverageOf(usize),
     BlocksPublished(f64),
@@ -327,6 +376,11 @@ impl Column {
                 let num = output.blockchain.num_blocks() as f64;
 
                 ColumnValue::BlocksPublished(num)
+            }
+            Self::Constant(s) => {
+                let value = s.call(());
+
+                ColumnValue::Constant(value)
             }
             Self::MinerStrategyName(miner_id) => {
                 let name = output.miners[*miner_id - 1].name();
@@ -414,7 +468,8 @@ impl Column {
                 ColumnValue::AverageOf(times)
             }
             // otherwise use the first simulation's value
-            Self::MinerStrategyName(_)
+            Self::Constant(_)
+            | Self::MinerStrategyName(_)
             | Self::MiningPower(_)
             | Self::MiningPowerFunction(_, _)
             | Self::Rounds => self.get_value(&data[0]),
@@ -430,6 +485,9 @@ impl Display for Column {
             }
             Self::BlocksPublished => {
                 write!(f, "Blocks Published")
+            }
+            Self::Constant(func) => {
+                write!(f, "{}", func.name())
             }
             Self::MinerStrategyName(miner_id) => {
                 write!(f, "Miner {} Strategy", miner_id)
@@ -461,6 +519,9 @@ impl Display for ColumnValue {
             }
             Self::BlocksPublished(num) => {
                 write!(f, "{:.1$}", num, FLOAT_PRECISION_DIGITS)
+            }
+            Self::Constant(value) => {
+                write!(f, "{:.1$}", value, FLOAT_PRECISION_DIGITS)
             }
             Self::MinerStrategyName(name) => {
                 write!(f, "{}", name)

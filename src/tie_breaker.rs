@@ -47,7 +47,7 @@ impl TieBreaker {
             Self::FavorMinerProb(miner_id, prob) => {
                 assert!(
                     (0.0..=1.0).contains(prob),
-                    "probability must be between 0 and 1"
+                    "tie breaker probability must be between 0 and 1"
                 );
 
                 let favored = tip

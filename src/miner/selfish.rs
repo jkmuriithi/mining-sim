@@ -88,13 +88,3 @@ impl Miner for Selfish {
         }
     }
 }
-
-/// Returns the ideal Selfish Miner revenue function from Eyal and Sirer's
-/// paper. To be used with [SimulationResultsBuilder::mining_power_func](crate::SimulationResultsBuilder).
-pub fn selfish_revenue(gamma: f64) -> impl Fn(crate::PowerValue) -> f64 {
-    move |a: crate::PowerValue| -> f64 {
-        (a * (1.0 - a).powi(2) * (4.0 * a + gamma * (1.0 - 2.0 * a))
-            - a.powi(3))
-            / (1.0 - a * (1.0 + a * (2.0 - a)))
-    }
-}

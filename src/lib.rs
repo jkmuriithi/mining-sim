@@ -1,6 +1,5 @@
 /*!
 Simulator for a game theory-based model of blockchain mining.
-
 */
 
 // ## Todo:

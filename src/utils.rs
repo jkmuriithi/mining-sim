@@ -1,6 +1,7 @@
 //! Helper functions and data types
 
-/// Helper for storing idempotent closures/functions with one argument
+/// Uses a name string to turn any pure `Fn(Input) -> Output` into a sized,
+/// sortable, hashable, cloneable, and thread-safe datatype.
 #[derive(Clone)]
 pub struct WrappedFunc<Input, Output> {
     name: String,

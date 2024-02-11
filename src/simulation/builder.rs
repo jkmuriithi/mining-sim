@@ -1,4 +1,4 @@
-//! Definitions for [SimulationBuilder]
+//! Definitions for [`SimulationBuilder`]
 
 use std::num::NonZeroUsize;
 
@@ -34,7 +34,7 @@ pub enum SimulationBuildError {
 }
 
 impl SimulationBuilder {
-    /// Create a new [SimulationBuilder].
+    /// Create a new [`SimulationBuilder`].
     pub fn new() -> Self {
         Self::default()
     }
@@ -56,7 +56,7 @@ impl SimulationBuilder {
     }
 
     /// Set the initial blockchain state used in the simulation.
-    /// ([Blockchain::default] used otherwise).
+    /// [`Blockchain::default`] is used otherwise.
     pub fn blockchain(mut self, chain: Blockchain) -> Self {
         self.blockchain = Some(chain);
 
@@ -100,7 +100,7 @@ impl SimulationBuilder {
     /// Run the simulation such that the mining power of the given miner is
     /// `value`, and mining power is distributed equally between all other
     /// miners. `miner` is a 1-based index over the miners that are added to
-    /// this [SimulationBuilder], in the order of addition.
+    /// this [`SimulationBuilder`], in the order of addition.
     pub fn miner_power(mut self, miner: MinerID, value: PowerValue) -> Self {
         self.power_dists
             .push(PowerDistribution::SetMiner(miner, value));
@@ -108,7 +108,7 @@ impl SimulationBuilder {
         self
     }
 
-    /// Call [SimulationBuilder::miner_power] once for each element of
+    /// Call [`SimulationBuilder::miner_power`] once for each element of
     /// `values`.
     pub fn miner_power_iter<I>(mut self, miner: MinerID, values: I) -> Self
     where
@@ -122,7 +122,7 @@ impl SimulationBuilder {
         self
     }
 
-    /// Create a [SimulationGroup] from the specified parameters.
+    /// Create a [`SimulationGroup`] from the specified parameters.
     pub fn build(self) -> Result<SimulationGroup, SimulationBuildError> {
         use SimulationBuildError::*;
 

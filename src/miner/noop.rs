@@ -1,14 +1,20 @@
-//! Mining strategy that never publishes a block.
+//! Mining strategy which never publishes a block
 
 use super::{Action, Miner, MinerID};
 
-/// [Noop::get_action] always returns [Action::Wait].
+/// [`Noop::get_action`] always returns [`Action::Wait`].
 #[derive(Debug, Clone, Default)]
 pub struct Noop(Option<MinerID>);
 
+impl Noop {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl Miner for Noop {
     fn name(&self) -> String {
-        "No-op".into()
+        "No-op (Wait)".into()
     }
 
     fn id(&self) -> super::MinerID {

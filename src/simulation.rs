@@ -77,7 +77,7 @@ impl SimulationGroup {
 /// A simulation of the blockchain mining game.
 ///
 /// # Details
-/// [Miner::get_action] is called on each [Miner] instance based on their
+/// [`Miner::get_action`] is called on each [`Miner`] instance based on their
 /// given order.
 #[derive(Debug, Clone)]
 struct Simulation {

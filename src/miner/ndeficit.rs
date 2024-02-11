@@ -227,38 +227,28 @@ impl Miner for NDeficit {
         self.update_state(chain, block.as_ref());
 
         // Handle selfish mining fork case
-        if self.our_blocks.len() == 1 {
-            let miner_id = self.id();
-            let lc = chain.tip();
+        // if self.our_blocks.len() == 1 {
+        //     let miner_id = self.id();
+        //     let lc = chain.tip();
 
-            let ours_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id == miner_id);
-            let othr_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id != miner_id);
+        //     let ours_at_lc =
+        //         lc.iter().find(|&&b| chain[b].block.miner_id == miner_id);
+        //     let othr_at_lc =
+        //         lc.iter().find(|&&b| chain[b].block.miner_id != miner_id);
 
-            if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
-                let block_id = self.our_blocks[0];
-                self.capitulate(block_id);
+        //     if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
+        //         let block_id = self.our_blocks[0];
+        //         self.capitulate(block_id);
 
-                return Action::Publish(Block {
-                    id: block_id,
-                    miner_id,
-                    parent_id: Some(*parent_id),
-                    txns: None,
-                });
-            }
-        }
+        //         return Action::Publish(Block {
+        //             id: block_id,
+        //             miner_id,
+        //             parent_id: Some(*parent_id),
+        //             txns: None,
+        //         });
+        //     }
+        // }
 
         self.map_state()
     }
-}
-
-/// Ideal Nothing-At-Stake miner revenue function from Weinberg and Ferrera's
-/// paper. To be used with
-/// [SimulationResultsBuilder::mining_power_func] (crate::SimulationResultsBuilder).
-pub fn nsm_revenue(a: crate::PowerValue) -> f64 {
-    (4.0 * a.powi(2) - 8.0 * a.powi(3) - a.powi(4) + 7.0 * a.powi(5)
-        - 3.0 * a.powi(6))
-        / (1.0 - a - 2.0 * a.powi(2) + 3.0 * a.powi(4) - 3.0 * a.powi(5)
-            + a.powi(6))
 }
