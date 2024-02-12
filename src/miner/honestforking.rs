@@ -4,8 +4,7 @@
 use rand::Rng;
 
 use crate::{
-    block::{Block, BlockId},
-    blockchain::Blockchain,
+    blockchain::{Block, BlockId, Blockchain},
     miner::{Action, Miner, MinerId},
     tie_breaker::TieBreaker,
 };

@@ -2,7 +2,10 @@
 
 use rand::{seq::SliceRandom, Rng};
 
-use crate::{block::BlockId, blockchain::Blockchain, miner::MinerId};
+use crate::{
+    blockchain::{BlockId, Blockchain},
+    miner::MinerId,
+};
 
 /// Breaks ties between multiple blocks of at the tip of a blockchain's longest
 /// chain.

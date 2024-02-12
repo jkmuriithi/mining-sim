@@ -27,7 +27,6 @@ Simulator for a game theory-based model of blockchain mining.
 // - Selfish Mining revenue -> alpha matches closed form from Eyal paper
 // - NSM revenue -> alpha matches closed form from Weinberg-Ferreira
 
-pub mod block;
 pub mod blockchain;
 pub mod miner;
 pub mod power_dist;

@@ -62,10 +62,7 @@ include:
 
 use std::fmt::Debug;
 
-use crate::{
-    block::{Block, BlockId},
-    blockchain::Blockchain,
-};
+use crate::blockchain::{Block, BlockId, Blockchain};
 
 pub mod honest;
 pub mod honestforking;
@@ -119,12 +116,12 @@ pub trait Miner: Debug + dyn_clone::DynClone + Send + Sync {
 
 dyn_clone::clone_trait_object!(Miner);
 
-/// Unique identifier of a [`Miner`] implementation.
+/// Unique identifier of a [`Miner`] implementation. Corresponds to a [`usize`].
 ///
 /// # Invariants
 ///
-/// [`MinerId`] `0` is reserved for [`Blockchain::GENESIS_MINER`],
-/// and as such `MinerId(0)` cannot be constructed outside of this crate.
+/// `MinerId(0)` is reserved for [`Blockchain::GENESIS_MINER`],
+/// and as such `MinerId(0)` cannot be instantiated outside of this crate, and
 /// [`MinerId::default`] returns `MinerId(1)`.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -139,7 +136,7 @@ impl MinerId {
 
 impl From<usize> for MinerId {
     fn from(value: usize) -> Self {
-        assert_ne!(value, 0, "user-constructed MinerId must be greater than 0");
+        assert_ne!(value, 0, "newly made MinerId must be greater than 0");
         Self(value)
     }
 }

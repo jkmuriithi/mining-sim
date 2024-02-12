@@ -1,8 +1,7 @@
 //! Mining strategy which never publishes a block
 
 use crate::{
-    block::BlockId,
-    blockchain::Blockchain,
+    blockchain::{BlockId, Blockchain},
     miner::{Action, Miner, MinerId},
 };
 

@@ -11,8 +11,7 @@ use rand::distributions::{Distribution, WeightedError, WeightedIndex};
 use rayon::prelude::*;
 
 use crate::{
-    block::BlockId,
-    blockchain::{BlockPublishingError, Blockchain},
+    blockchain::{BlockId, BlockPublishingError, Blockchain},
     miner::{Action, Miner, MinerId},
     power_dist::{PowerDistribution, PowerDistributionError, PowerValue},
     results::SimulationResultsBuilder,
@@ -58,8 +57,8 @@ impl SimulationBuilder {
             miner.name(),
         );
 
-        self.curr_miner_id.0 += 1;
         self.miners.push(Box::new(miner));
+        self.curr_miner_id.0 += 1;
 
         self
     }
@@ -203,10 +202,6 @@ pub struct SimulationGroup {
 }
 
 impl SimulationGroup {
-    pub fn add(&mut self, power_dist: PowerDistribution) {
-        self.power_dists.push(power_dist);
-    }
-
     pub fn builder() -> SimulationBuilder {
         SimulationBuilder::new()
     }

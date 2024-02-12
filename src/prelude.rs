@@ -9,13 +9,11 @@ use mining_sim::prelude::*;
 */
 
 use crate::{
-    block, blockchain, miner, power_dist, results, simulation, tie_breaker,
+    blockchain, miner, power_dist, results, simulation, tie_breaker,
     transaction,
 };
 
-pub use block::{Block, BlockId};
-
-pub use blockchain::{BlockPublishingError, Blockchain};
+pub use blockchain::{Block, BlockId, BlockPublishingError, Blockchain};
 
 pub use miner::{
     honest::Honest, honestforking::HonestForking, ndeficit::NDeficit,

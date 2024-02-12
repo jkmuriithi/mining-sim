@@ -3,12 +3,10 @@
 use std::collections::VecDeque;
 
 use crate::{
-    block::{Block, BlockId},
-    blockchain::Blockchain,
+    blockchain::{Block, BlockId, Blockchain},
+    miner::{Action, Miner, MinerId},
     tie_breaker::TieBreaker,
 };
-
-use super::{Action, Miner, MinerId};
 
 #[derive(Debug, Default, Clone)]
 pub struct Selfish {
@@ -43,7 +41,6 @@ impl Miner for Selfish {
         chain: &Blockchain,
         block_mined: Option<BlockId>,
     ) -> Action {
-        // If hidden_blocks only contains blocks that are
         if self.private_height < chain.max_height() {
             self.hidden_blocks.clear();
         }

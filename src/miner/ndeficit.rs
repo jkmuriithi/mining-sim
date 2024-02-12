@@ -12,12 +12,10 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
-    block::{Block, BlockId},
-    blockchain::Blockchain,
+    blockchain::{Block, BlockId, Blockchain},
+    miner::{Action, Miner, MinerId},
     tie_breaker::TieBreaker,
 };
-
-use super::{Action, Miner, MinerId};
 
 #[derive(Debug, Clone, Default)]
 pub struct NDeficit {
@@ -235,26 +233,26 @@ impl Miner for NDeficit {
         // Handle selfish mining fork case
         // FIXME: Forks are never encountered when up against an honest miner,
         // may need to implement "aggressive" strategy
-        if self.our_blocks.len() == 1 {
-            let lc = chain.tip();
+        // if self.our_blocks.len() == 1 {
+        //     let lc = chain.tip();
 
-            let ours_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id == self.id);
-            let othr_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id != self.id);
+        //     let ours_at_lc =
+        //         lc.iter().find(|&&b| chain[b].block.miner_id == self.id);
+        //     let othr_at_lc =
+        //         lc.iter().find(|&&b| chain[b].block.miner_id != self.id);
 
-            if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
-                let block_id = self.our_blocks[0];
-                self.capitulate(block_id);
+        //     if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
+        //         let block_id = self.our_blocks[0];
+        //         self.capitulate(block_id);
 
-                return Action::Publish(Block {
-                    id: block_id,
-                    miner_id: self.id,
-                    parent_id: Some(*parent_id),
-                    txns: None,
-                });
-            }
-        }
+        //         return Action::Publish(Block {
+        //             id: block_id,
+        //             miner_id: self.id,
+        //             parent_id: Some(*parent_id),
+        //             txns: None,
+        //         });
+        //     }
+        // }
 
         self.map_state()
     }

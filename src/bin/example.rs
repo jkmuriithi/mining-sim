@@ -2,7 +2,7 @@ use std::{error::Error, time::Instant};
 
 use mining_sim::{prelude::*, results::selfish_revenue};
 
-const GAMMA: f64 = 0.4;
+const GAMMA: f64 = 0.5;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             2.into(),
             GAMMA,
         )))
-        .add_miner(NDeficit::new(1))
+        .add_miner(Selfish::new())
         .miner_power_iter(2.into(), alpha)
         .build()?;
 

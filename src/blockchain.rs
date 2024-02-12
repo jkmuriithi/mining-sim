@@ -2,14 +2,11 @@
 
 use std::{collections::HashMap, ops::Index};
 
-use crate::{
-    block::{Block, BlockId},
-    miner::MinerId,
-};
+use crate::{miner::MinerId, transaction::Transaction};
 
 /// Representation of a public blockchain which miners can publish to. The
-/// genesis block of this chain will always have [`BlockId`] 0, and the genesis
-/// miner will always have [`MinerId`] 0.
+/// genesis block of this chain will always have [`BlockId`] `0`, and the
+/// genesis miner will always have [`MinerId`] `0`.
 #[derive(Debug, Clone)]
 pub struct Blockchain {
     max_height: usize,
@@ -40,7 +37,9 @@ pub enum BlockPublishingError {
 }
 
 impl Blockchain {
+    /// `BlockId(0)`
     pub const GENESIS_ID: BlockId = BlockId(0);
+    /// `MinerId(0)`
     pub const GENESIS_MINER: MinerId = MinerId(0);
 
     /// Creates a new blockchain containing a genesis block.     
@@ -249,6 +248,74 @@ impl<'a> Iterator for Ancestors<'a> {
             }
             None => None,
         }
+    }
+}
+
+/// Representation of a mined block of transactions.
+#[derive(Debug, Default, Clone)]
+pub struct Block {
+    /// Unique identifier of this block.
+    pub id: BlockId,
+    /// ID of this block's parent.
+    pub parent_id: Option<BlockId>,
+    /// ID of this block's miner.
+    pub miner_id: MinerId,
+    /// Transaction data included in this block.
+    pub txns: Option<Vec<Transaction>>,
+}
+
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Block {}
+
+impl PartialOrd for Block {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.id.cmp(&other.id))
+    }
+}
+
+impl Ord for Block {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+/// Unique identifier of a [`Block`]. Corresponds to a [`usize`].
+///
+/// # Invariants
+///
+/// `BlockId(0)` is reserved for
+/// [`Blockchain::GENESIS`](crate::blockchain::Blockchain), and as such there
+/// will never be more than one block with [`BlockId`] `0` on a blockchain.
+///
+/// This invariant is maintained by
+/// [`Blockchain::publish`](crate::blockchain::Blockchain), so no
+/// restrictions are placed upon the instantiation of [`BlockId`], and
+/// [`BlockId::default`] returns `BlockId(0)`.
+#[repr(transparent)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BlockId(pub(crate) usize);
+
+impl BlockId {
+    /// Returns the [`usize`] corresponding to this [`BlockId`].
+    pub fn get(&self) -> usize {
+        self.0
+    }
+}
+
+impl From<usize> for BlockId {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+impl std::fmt::Display for BlockId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
     }
 }
 
