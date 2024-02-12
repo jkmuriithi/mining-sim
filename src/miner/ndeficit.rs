@@ -68,6 +68,7 @@ impl NDeficit {
         let tip = self.tie_breaker.choose(chain);
         let cap_height = chain[self.capitulation].height;
 
+        // Ignore states of the form [H(x), ..]
         if !self.our_blocks.is_empty() {
             let mut unseen_blocks = vec![];
 
