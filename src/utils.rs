@@ -9,12 +9,13 @@ pub struct WrapFunc<Input, Output> {
 }
 
 /// Creates a `WrapFunc` from a name and a closure/function.
-#[macro_export]
 macro_rules! wrap {
     ($name:expr, $func:expr) => {
         WrapFunc::new($name, $func)
     };
 }
+
+pub(crate) use wrap;
 
 impl<I, J> WrapFunc<I, J> {
     pub fn new<N, F>(name: N, func: F) -> Self

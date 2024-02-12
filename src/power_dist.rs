@@ -1,6 +1,6 @@
 //! Describing distributions of mining power
 
-use crate::miner::MinerID;
+use crate::miner::MinerId;
 
 /// Numeric type used to represent mining power.
 pub type PowerValue = f64;
@@ -15,7 +15,7 @@ pub enum PowerDistribution {
     /// Set the specified miner's power to some value between `0.0` and `1.0`
     /// inclusive, with mining power distributed equally between all other
     /// miners.
-    SetMiner(MinerID, PowerValue),
+    SetMiner(MinerId, PowerValue),
     /// Set all mining power values to those in the given vector.
     SetValues(Vec<PowerValue>),
 }
@@ -26,10 +26,10 @@ pub enum PowerDistributionError {
     BadDistributionSum(PowerValue),
     #[error("power value {0} is not in the range 0.0..=1.0")]
     BadPowerValue(PowerValue),
-    #[error("cannot set power for the genesis miner (MinerID 0)")]
+    #[error("cannot set power for the genesis miner (MinerId 0)")]
     SetMinerGenesisMiner,
-    #[error("cannot set power for invalid miner ID {0}")]
-    SetMinerBadMinerID(MinerID),
+    #[error("cannot set power for invalid MinerId {0}")]
+    SetMinerBadMinerID(MinerId),
     #[error("cannot set power for a single miner")]
     SetMinerSingleMiner,
     #[error("power distribution size {0} does not match miner count {1}")]
@@ -84,11 +84,11 @@ impl PowerDistribution {
 
                 let miner_id = *miner_id;
 
-                if miner_id == 0 {
+                if miner_id.0 == 0 {
                     return Err(SetMinerGenesisMiner);
                 }
 
-                if miner_id > num_miners {
+                if miner_id.0 > num_miners {
                     return Err(SetMinerBadMinerID(miner_id));
                 }
 
@@ -104,7 +104,7 @@ impl PowerDistribution {
 
     pub fn power_of(
         &self,
-        miner_id: MinerID,
+        miner_id: MinerId,
         num_miners: usize,
     ) -> Result<PowerValue, PowerDistributionError> {
         self.validate(num_miners)?;
@@ -117,12 +117,12 @@ impl PowerDistribution {
     /// discrete probability distribution over the given number of miners.
     pub unsafe fn power_of_unchecked(
         &self,
-        miner_id: MinerID,
+        miner_id: MinerId,
         num_miners: usize,
     ) -> PowerValue {
         match &self {
             Self::Equal => 1.0 / num_miners as PowerValue,
-            Self::SetValues(dist) => dist[miner_id - 1],
+            Self::SetValues(dist) => dist[miner_id.0 - 1],
             Self::SetMiner(id, power) => {
                 if miner_id == *id {
                     *power
@@ -156,7 +156,7 @@ impl PowerDistribution {
                 let other = (1.0 - power) / (num_miners - 1) as PowerValue;
 
                 let mut dist = vec![other; num_miners];
-                dist[*miner_id - 1] = *power;
+                dist[miner_id.0 - 1] = *power;
 
                 dist
             }

@@ -12,25 +12,25 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
-    block::{Block, BlockID},
+    block::{Block, BlockId},
     blockchain::Blockchain,
     tie_breaker::TieBreaker,
 };
 
-use super::{Action, Miner, MinerID};
+use super::{Action, Miner, MinerId};
 
 #[derive(Debug, Clone, Default)]
 pub struct NDeficit {
     i: usize,
-    id: Option<MinerID>,
-    tie_breaker: Option<TieBreaker>,
+    id: MinerId,
+    tie_breaker: TieBreaker,
 
     // Blockchain state tracking
-    capitulation: BlockID,
+    capitulation: BlockId,
     state: Vec<StateEntry>,
-    seen: HashSet<BlockID>,
-    our_blocks: VecDeque<BlockID>,
-    honest_blocks: Vec<BlockID>,
+    seen: HashSet<BlockId>,
+    our_blocks: VecDeque<BlockId>,
+    honest_blocks: Vec<BlockId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -57,13 +57,17 @@ impl NDeficit {
     }
 
     /// Capitulates to B_{0, 0} with `head` as the genesis block.
-    fn capitulate(&mut self, genesis: BlockID) {
+    fn capitulate(&mut self, genesis: BlockId) {
         self.capitulation = genesis;
         self.clear_state();
     }
 
-    fn update_state(&mut self, chain: &Blockchain, block: Option<&BlockID>) {
-        let tip = self.tie_breaker.unwrap().choose(chain);
+    fn update_state(
+        &mut self,
+        chain: &Blockchain,
+        block_mined: Option<&BlockId>,
+    ) {
+        let tip = self.tie_breaker.choose(chain);
         let cap_height = chain[self.capitulation].height;
 
         if !self.our_blocks.is_empty() {
@@ -102,7 +106,7 @@ impl NDeficit {
             self.capitulation = tip;
         }
 
-        if let Some(block_id) = block {
+        if let Some(block_id) = block_mined {
             self.seen.insert(*block_id);
             self.our_blocks.push_back(*block_id);
 
@@ -115,9 +119,7 @@ impl NDeficit {
 
     /// Returns a path of blocks from `parent` through all hidden blocks. Clears
     /// `self.hidden`.
-    fn block_path_to(&mut self, parent: BlockID) -> Vec<Block> {
-        let miner_id = self.id();
-
+    fn block_path_to(&mut self, parent: BlockId) -> Vec<Block> {
         let mut blocks = vec![];
         let mut parent = parent;
         self.our_blocks.drain(..).for_each(|id| {
@@ -125,7 +127,7 @@ impl NDeficit {
                 Block {
                     id,
                     parent_id: Some(parent),
-                    miner_id,
+                    miner_id: self.id,
                     txns: None,
                 }
             });
@@ -214,46 +216,45 @@ impl Miner for NDeficit {
         format!("{}-Deficit", self.i)
     }
 
-    fn id(&self) -> MinerID {
-        self.id.expect("miner ID to be set")
+    fn id(&self) -> MinerId {
+        self.id
     }
 
-    fn set_id(&mut self, id: MinerID) {
-        self.id = Some(id);
-        self.tie_breaker = Some(TieBreaker::FavorMiner(id));
+    fn set_id(&mut self, id: MinerId) {
+        self.id = id;
+        self.tie_breaker = TieBreaker::FavorMiner(id);
     }
 
     fn get_action(
         &mut self,
         chain: &Blockchain,
-        block: Option<BlockID>,
+        block_mined: Option<BlockId>,
     ) -> super::Action {
-        self.update_state(chain, block.as_ref());
+        self.update_state(chain, block_mined.as_ref());
 
         // Handle selfish mining fork case
         // FIXME: Forks are never encountered when up against an honest miner,
         // may need to implement "aggressive" strategy
-        // if self.our_blocks.len() == 1 {
-        //     let miner_id = self.id();
-        //     let lc = chain.tip();
+        if self.our_blocks.len() == 1 {
+            let lc = chain.tip();
 
-        //     let ours_at_lc =
-        //         lc.iter().find(|&&b| chain[b].block.miner_id == miner_id);
-        //     let othr_at_lc =
-        //         lc.iter().find(|&&b| chain[b].block.miner_id != miner_id);
+            let ours_at_lc =
+                lc.iter().find(|&&b| chain[b].block.miner_id == self.id);
+            let othr_at_lc =
+                lc.iter().find(|&&b| chain[b].block.miner_id != self.id);
 
-        //     if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
-        //         let block_id = self.our_blocks[0];
-        //         self.capitulate(block_id);
+            if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
+                let block_id = self.our_blocks[0];
+                self.capitulate(block_id);
 
-        //         return Action::Publish(Block {
-        //             id: block_id,
-        //             miner_id,
-        //             parent_id: Some(*parent_id),
-        //             txns: None,
-        //         });
-        //     }
-        // }
+                return Action::Publish(Block {
+                    id: block_id,
+                    miner_id: self.id,
+                    parent_id: Some(*parent_id),
+                    txns: None,
+                });
+            }
+        }
 
         self.map_state()
     }

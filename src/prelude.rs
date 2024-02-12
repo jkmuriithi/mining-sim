@@ -1,6 +1,7 @@
 /*!
-Re-export of common values and datatypes used for running and analyzing
-simulations. Must be imported manually.
+Re-export of common values and datatypes.
+
+Must be imported manually.
 
 ```
 use mining_sim::prelude::*;
@@ -12,13 +13,13 @@ use crate::{
     transaction,
 };
 
-pub use block::{Block, BlockID};
+pub use block::{Block, BlockId};
 
 pub use blockchain::{BlockPublishingError, Blockchain};
 
 pub use miner::{
     honest::Honest, honestforking::HonestForking, ndeficit::NDeficit,
-    noop::Noop, selfish::Selfish, Miner, MinerID,
+    noop::Noop, selfish::Selfish, Action, Miner, MinerId,
 };
 
 pub use power_dist::{PowerDistribution, PowerDistributionError, PowerValue};

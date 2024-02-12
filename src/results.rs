@@ -1,20 +1,18 @@
 /*!
-Defines data types which control the appearance of simulation results.
+Control the appearance of simulation result data
 
-# Formatting Results
+# Working with [`SimulationResults`]
 
-
-# Aggregating Results
-
-# Examples
+## Examples
 
 Creating [`SimulationResults`] after running a simulation group:
+
 ```
-use mining_sim::{miner, Format, SimulationBuilder};
+use mining_sim::prelude::*;
 
 let sim = SimulationBuilder::new()
-    .add_miner(miner::Honest::new())
-    .add_miner(miner::Honest::new())
+    .add_miner(Honest::new())
+    .add_miner(Honest::new())
     .repeat_all(5)
     .power_values([0.1, 0.9])
     .build()
@@ -33,6 +31,14 @@ let results = results_builder
 
 println!("{}", results);
 ```
+
+# Formatting Results
+
+
+# Aggregating Results
+TODO: Specify and implementing different aggregation methods (median, mean, max, min)
+for repeated sims
+
 */
 
 use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
@@ -40,15 +46,15 @@ use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
 use rayon::prelude::*;
 
 use crate::{
-    miner::MinerID, power_dist::PowerValue, simulation::SimulationOutput,
-    utils::WrapFunc, wrap,
+    miner::MinerId, power_dist::PowerValue, simulation::SimulationOutput,
+    utils::wrap, utils::WrapFunc,
 };
 
 /// Floating point precision of results data.
 pub const FLOAT_PRECISION_DIGITS: usize = 6;
 
 /// Builder for [`SimulationResults`]. Typically produced by running a
-/// [`SimulationGroup`](super::SimulationGroup).
+/// [`SimulationGroup`](crate::simulation::SimulationGroup).
 #[derive(Debug, Clone)]
 pub struct SimulationResultsBuilder {
     averaged: bool,
@@ -139,7 +145,7 @@ impl SimulationResultsBuilder {
     /// and present the output in a table column with the given title.
     pub fn mining_power_func<T, F>(
         mut self,
-        miner_id: MinerID,
+        miner_id: MinerId,
         title: T,
         func: F,
     ) -> Self
@@ -158,7 +164,8 @@ impl SimulationResultsBuilder {
     pub fn strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
-            self.columns.insert(Column::MinerStrategyName(miner_id));
+            self.columns
+                .insert(Column::MinerStrategyName(miner_id.into()));
         }
 
         self
@@ -169,7 +176,7 @@ impl SimulationResultsBuilder {
     pub fn revenue(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
-            self.columns.insert(Column::MinerRevenue(miner_id));
+            self.columns.insert(Column::MinerRevenue(miner_id.into()));
         }
 
         self
@@ -201,7 +208,7 @@ impl SimulationResultsBuilder {
 
         let num_miners = data[0].miners.len();
         for miner_id in 1..=num_miners {
-            columns.insert(Column::MiningPower(miner_id));
+            columns.insert(Column::MiningPower(miner_id.into()));
         }
 
         let columns = Vec::from_iter(columns);
@@ -234,8 +241,9 @@ impl SimulationResultsBuilder {
 }
 
 /// Formatted results from the completion of a
-/// [`SimulationGroup`](super::SimulationGroup). The results table is given by the
-/// struct's [`Display`] implementation, as specified by its [`Format`].
+/// [`SimulationGroup`](crate::simulation::SimulationGroup). The results table
+/// is given by the struct's [`Display`] implementation, as specified by
+/// its [`Format`].
 pub struct SimulationResults {
     columns: Vec<Column>,
     format: Format,
@@ -328,10 +336,10 @@ impl Display for SimulationResults {
 enum Column {
     // Variant order determines the order of columns in results tables:
     // https://doc.rust-lang.org/stable/std/cmp/trait.PartialOrd.html#derivable
-    MinerStrategyName(MinerID),
-    MiningPower(MinerID),
-    MinerRevenue(MinerID),
-    MiningPowerFunction(MinerID, WrapFunc<PowerValue, f64>),
+    MinerStrategyName(MinerId),
+    MiningPower(MinerId),
+    MinerRevenue(MinerId),
+    MiningPowerFunction(MinerId, WrapFunc<PowerValue, f64>),
     Constant(WrapFunc<(), f64>),
     Rounds,
     AverageOf,
@@ -354,7 +362,7 @@ enum ColumnValue {
 }
 
 #[inline]
-fn revenue_of(miner_id: &MinerID, data: &SimulationOutput) -> f64 {
+fn revenue_of(miner_id: &MinerId, data: &SimulationOutput) -> f64 {
     let blocks = data
         .blocks_by_miner
         .get(miner_id)
@@ -383,7 +391,7 @@ impl Column {
                 ColumnValue::Constant(value)
             }
             Self::MinerStrategyName(miner_id) => {
-                let name = output.miners[*miner_id - 1].name();
+                let name = output.miners[miner_id.0 - 1].name();
 
                 ColumnValue::MinerStrategyName(name)
             }
@@ -543,4 +551,25 @@ impl Display for ColumnValue {
             }
         }
     }
+}
+
+/// Returns an instance of the ideal Selfish Miner revenue function from Eyal
+/// and Sirer's paper which can be used as input to
+/// [`SimulationResultsBuilder::mining_power_func`].
+pub fn selfish_revenue(gamma: f64) -> impl Fn(PowerValue) -> f64 {
+    move |a: PowerValue| -> f64 {
+        (a * (1.0 - a).powi(2) * (4.0 * a + gamma * (1.0 - 2.0 * a))
+            - a.powi(3))
+            / (1.0 - a * (1.0 + a * (2.0 - a)))
+    }
+}
+
+/// Ideal Nothing-At-Stake miner revenue function from Weinberg and Ferrera's
+/// paper. Can be used as input to
+/// [`SimulationResultsBuilder::mining_power_func`].
+pub fn nsm_revenue(a: PowerValue) -> f64 {
+    (4.0 * a.powi(2) - 8.0 * a.powi(3) - a.powi(4) + 7.0 * a.powi(5)
+        - 3.0 * a.powi(6))
+        / (1.0 - a - 2.0 * a.powi(2) + 3.0 * a.powi(4) - 3.0 * a.powi(5)
+            + a.powi(6))
 }

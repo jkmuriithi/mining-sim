@@ -3,19 +3,19 @@
 use std::collections::VecDeque;
 
 use crate::{
-    block::{Block, BlockID},
+    block::{Block, BlockId},
     blockchain::Blockchain,
     tie_breaker::TieBreaker,
 };
 
-use super::{Action, Miner, MinerID};
+use super::{Action, Miner, MinerId};
 
 #[derive(Debug, Default, Clone)]
 pub struct Selfish {
     hidden_blocks: VecDeque<Block>,
-    id: Option<MinerID>,
+    id: MinerId,
     private_height: usize,
-    tie_breaker: Option<TieBreaker>,
+    tie_breaker: TieBreaker,
 }
 
 impl Selfish {
@@ -26,33 +26,32 @@ impl Selfish {
 
 impl Miner for Selfish {
     fn name(&self) -> String {
-        "Selfish".into()
+        "Selfish".to_string()
     }
 
-    #[inline]
-    fn id(&self) -> MinerID {
-        self.id.expect("Miner ID to be set")
+    fn id(&self) -> MinerId {
+        self.id
     }
 
-    fn set_id(&mut self, id: MinerID) {
-        self.id = Some(id);
-        self.tie_breaker = Some(TieBreaker::FavorMiner(id));
+    fn set_id(&mut self, id: MinerId) {
+        self.id = id;
+        self.tie_breaker = TieBreaker::FavorMiner(id);
     }
 
     fn get_action(
         &mut self,
         chain: &Blockchain,
-        block: Option<BlockID>,
+        block_mined: Option<BlockId>,
     ) -> Action {
         // If hidden_blocks only contains blocks that are
         if self.private_height < chain.max_height() {
             self.hidden_blocks.clear();
         }
 
-        match block {
+        match block_mined {
             Some(block_id) => {
                 let parent_id = if self.hidden_blocks.is_empty() {
-                    let p = self.tie_breaker.unwrap().choose(chain);
+                    let p = self.tie_breaker.choose(chain);
                     self.private_height = chain[p].height + 1;
                     p
                 } else {
@@ -60,20 +59,21 @@ impl Miner for Selfish {
                     self.hidden_blocks.back().unwrap().id
                 };
 
-                let id = self.id();
-
-                let tip = chain.tip();
-                let fork = tip.iter().any(|&b| chain[b].block.miner_id == id)
-                    && tip.iter().any(|&b| chain[b].block.miner_id != id);
-
                 let block = Block {
                     id: block_id,
                     parent_id: Some(parent_id),
-                    miner_id: id,
+                    miner_id: self.id,
                     txns: None,
                 };
 
-                if fork && self.hidden_blocks.is_empty() {
+                let lc = chain.tip();
+                let ours_at_lc =
+                    lc.iter().any(|b| chain[b].block.miner_id == self.id);
+                let other_at_lc =
+                    lc.iter().any(|b| chain[b].block.miner_id != self.id);
+
+                if self.hidden_blocks.is_empty() && (ours_at_lc && other_at_lc)
+                {
                     Action::Publish(block)
                 } else {
                     self.hidden_blocks.push_back(block);

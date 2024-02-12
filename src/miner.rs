@@ -1,9 +1,69 @@
-//! Definitions for miner implementations
+/*!
+Definitions for miner implementations
+
+A miner is any type which implements the [`Miner`] trait. Each miner should keep
+track of any internal state necessary to produce the desired strategic behavior.
+
+# Examples
+A miner implementation which breaks longest chain ties using
+[`TieBreaker`](crate::tie_breaker::TieBreaker).
+
+```
+use mining_sim::prelude::*;
+
+#[derive(Debug, Clone)]
+struct MyMiner {
+    id: MinerId,
+    tie_breaker: TieBreaker,
+}
+
+impl Miner for MyMiner {
+    fn name(&self) -> String {
+        "MyMiner".to_string()
+    }
+
+    fn id(&self) -> MinerId {
+        self.id
+    }
+
+    fn set_id(&mut self, id: MinerId) {
+        self.id = id;
+        self.tie_breaker = TieBreaker::FavorMiner(id);
+    }
+
+    fn get_action(
+        &mut self,
+        chain: &Blockchain,
+        block_mined: Option<BlockId>,
+    ) -> Action {
+        match block_mined {
+            Some(block_id) => Action::Publish(Block {
+                id: block_id,
+                parent_id: Some(self.tie_breaker.choose(chain)),
+                miner_id: self.id,
+                txns: None,
+            }),
+            None => Action::Wait,
+        }
+    }
+}
+```
+
+# Built-In Strategies
+
+A variety of strategies have already been implemented in this module. These
+include:
+- Honest Mining [`honest::Honest`]
+- Honest Mining with Probabilistic Forks [`honestforking::HonestForking`]
+- Selfish Mining [`selfish::Selfish`]
+- N-Deficit Mining [`ndeficit::NDeficit`]
+- Noop [`noop::Noop`]
+*/
 
 use std::fmt::Debug;
 
 use crate::{
-    block::{Block, BlockID},
+    block::{Block, BlockId},
     blockchain::Blockchain,
 };
 
@@ -12,41 +72,6 @@ pub mod honestforking;
 pub mod ndeficit;
 pub mod noop;
 pub mod selfish;
-
-/// Numeric type of each miner's unique identifier.
-pub type MinerID = usize;
-
-/// A blockchain miner with some strategy.
-pub trait Miner: Debug + dyn_clone::DynClone + Send + Sync {
-    /// Get this miner's [`MinerID`].
-    ///
-    /// # Panics
-    /// Panics if this miner's ID has not been set using [`Miner::set_id`].
-    fn id(&self) -> MinerID;
-
-    /// Set this miner's [`MinerID`]. This ID must be set before any other trait
-    /// methods are called.
-    fn set_id(&mut self, id: MinerID);
-
-    /// Get the action taken by this miner in this round. `block` is `Some` if
-    /// this miner has been selected as the proposer for this round, and `None`
-    /// otherwise.
-    ///
-    /// # Panics
-    /// Panics if the ID of this miner has not been set using [`Miner::set_id`].
-    fn get_action(
-        &mut self,
-        chain: &Blockchain,
-        block: Option<BlockID>,
-    ) -> Action;
-
-    /// Returns the name of the miner's strategy.
-    fn name(&self) -> String {
-        "Name not set".into()
-    }
-}
-
-dyn_clone::clone_trait_object!(Miner);
 
 /// An action taken by a miner on the chain.
 #[derive(Debug, Clone)]
@@ -60,23 +85,72 @@ pub enum Action {
     PublishSet(Vec<Block>),
 }
 
-/// Returns an instance of the ideal Selfish Miner revenue function from Eyal
-/// and Sirer's paper which can be used as input to
-/// [`SimulationResultsBuilder::mining_power_func`](crate::SimulationResultsBuilder).
-pub fn selfish_revenue(gamma: f64) -> impl Fn(crate::PowerValue) -> f64 {
-    move |a: crate::PowerValue| -> f64 {
-        (a * (1.0 - a).powi(2) * (4.0 * a + gamma * (1.0 - 2.0 * a))
-            - a.powi(3))
-            / (1.0 - a * (1.0 + a * (2.0 - a)))
+/// Defines the behavior of a mining strategy.
+pub trait Miner: Debug + dyn_clone::DynClone + Send + Sync {
+    /// Returns the name of this miner's strategy.
+    ///
+    /// The return value of this method will appear in the "Strategy Name"
+    /// column of [`SimulationResults`](crate::results::SimulationResults).
+    fn name(&self) -> String;
+
+    /// Returns this miner's [`MinerId`].
+    fn id(&self) -> MinerId;
+
+    /// Sets this miner's [`MinerId`].
+    ///
+    /// This method is guaranteed to be called after a [`Miner`]
+    /// implementation is added to a
+    /// [`SimulationBuilder`](crate::simulation::SimulationBuilder).
+    fn set_id(&mut self, id: MinerId);
+
+    /// Returns the action taken by this miner in this round.
+    ///
+    /// Called once in each round of each simulation.
+    ///
+    /// `chain` is a reference to the simulation's blockchain. `block_mined` is
+    /// `Some(block_id)` if this miner has been selected as the proposer in the
+    /// current simulation round, and `None` otherwise.
+    fn get_action(
+        &mut self,
+        chain: &Blockchain,
+        block_mined: Option<BlockId>,
+    ) -> Action;
+}
+
+dyn_clone::clone_trait_object!(Miner);
+
+/// Unique identifier of a [`Miner`] implementation.
+///
+/// # Invariants
+///
+/// [`MinerId`] `0` is reserved for [`Blockchain::GENESIS_MINER`],
+/// and as such `MinerId(0)` cannot be constructed outside of this crate.
+/// [`MinerId::default`] returns `MinerId(1)`.
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MinerId(pub(crate) usize);
+
+impl MinerId {
+    /// Returns the [`usize`] corresponding to this [`MinerId`].
+    pub fn get(&self) -> usize {
+        self.0
     }
 }
 
-/// Ideal Nothing-At-Stake miner revenue function from Weinberg and Ferrera's
-/// paper. Can be used as input to
-/// [`SimulationResultsBuilder::mining_power_func`](crate::SimulationResultsBuilder).
-pub fn nsm_revenue(a: crate::PowerValue) -> f64 {
-    (4.0 * a.powi(2) - 8.0 * a.powi(3) - a.powi(4) + 7.0 * a.powi(5)
-        - 3.0 * a.powi(6))
-        / (1.0 - a - 2.0 * a.powi(2) + 3.0 * a.powi(4) - 3.0 * a.powi(5)
-            + a.powi(6))
+impl From<usize> for MinerId {
+    fn from(value: usize) -> Self {
+        assert_ne!(value, 0, "user-constructed MinerId must be greater than 0");
+        Self(value)
+    }
+}
+
+impl Default for MinerId {
+    fn default() -> Self {
+        Self::from(1)
+    }
+}
+impl std::fmt::Display for MinerId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
 }

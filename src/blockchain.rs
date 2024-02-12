@@ -3,19 +3,18 @@
 use std::{collections::HashMap, ops::Index};
 
 use crate::{
-    block::{Block, BlockID},
-    miner::MinerID,
+    block::{Block, BlockId},
+    miner::MinerId,
 };
 
 /// Representation of a public blockchain which miners can publish to. The
-/// genesis block of this chain will always have [`BlockID`] 0, and the genesis
-/// miner will always have [`MinerID`] 0.
+/// genesis block of this chain will always have [`BlockId`] 0, and the genesis
+/// miner will always have [`MinerId`] 0.
 #[derive(Debug, Clone)]
 pub struct Blockchain {
-    genesis_id: BlockID,
     max_height: usize,
-    blocks: HashMap<BlockID, BlockData>,
-    blocks_by_height: Vec<Vec<BlockID>>,
+    blocks: HashMap<BlockId, BlockData>,
+    blocks_by_height: Vec<Vec<BlockId>>,
 }
 
 /// A block and its metadata as stored in a [`Blockchain`].
@@ -25,25 +24,24 @@ pub struct BlockData {
     /// Length of the path from `block` to the genesis block of the blockchain.
     pub height: usize,
     /// IDs of all blocks which point to `block` as their parent.
-    pub children: Vec<BlockID>,
+    pub children: Vec<BlockId>,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum BlockPublishingError {
     #[error("block {0} does not contain a parent block ID")]
-    NoParentGiven(BlockID),
+    NoParentGiven(BlockId),
     #[error("block {child}'s parent {parent} was not found in this chain")]
-    ParentNotFound { child: BlockID, parent: BlockID },
+    ParentNotFound { child: BlockId, parent: BlockId },
     #[error("block {child} cannot have block {parent} as its parent")]
-    InvalidParent { child: BlockID, parent: BlockID },
+    InvalidParent { child: BlockId, parent: BlockId },
     #[error("block ID {0} already exists on this chain")]
-    DuplicateBlockID(BlockID),
+    DuplicateBlockID(BlockId),
 }
 
 impl Blockchain {
-    pub const GENESIS_ID: BlockID = 0;
-
-    pub const GENESIS_MINER: MinerID = 0;
+    pub const GENESIS_ID: BlockId = BlockId(0);
+    pub const GENESIS_MINER: MinerId = MinerId(0);
 
     /// Creates a new blockchain containing a genesis block.     
     pub fn new() -> Self {
@@ -62,41 +60,40 @@ impl Blockchain {
         )]);
 
         Blockchain {
-            genesis_id: 0,
             max_height: 0,
             blocks,
-            blocks_by_height: vec![vec![0]],
+            blocks_by_height: vec![vec![Self::GENESIS_ID]],
         }
     }
 
     /// Returns the IDs of all blocks at the specified height, in the order
     /// that they were published to the blockchain.
     #[inline]
-    pub fn at_height(&self, height: usize) -> Option<&[BlockID]> {
+    pub fn at_height(&self, height: usize) -> Option<&[BlockId]> {
         self.blocks_by_height.get(height).map(|v| v.as_slice())
     }
 
-    /// Returns true if a block with [`BlockID`] `id` is on the chain.
+    /// Returns true if a block with [`BlockId`] `id` is on the chain.
     #[inline]
-    pub fn contains(&self, id: BlockID) -> bool {
+    pub fn contains(&self, id: BlockId) -> bool {
         self.blocks.contains_key(&id)
     }
 
     /// ID of the genesis block.
     #[inline]
-    pub fn genesis(&self) -> BlockID {
-        self.genesis_id
+    pub fn genesis(&self) -> BlockId {
+        Self::GENESIS_ID
     }
 
     /// Returns a reference to the [`BlockData`] associated with `id`.
     #[inline]
-    pub fn get(&self, id: BlockID) -> Option<&BlockData> {
+    pub fn get(&self, id: BlockId) -> Option<&BlockData> {
         self.blocks.get(&id)
     }
 
     /// Returns the parent of the block with the given ID.
     #[inline]
-    pub fn get_parent(&self, id: BlockID) -> Option<BlockID> {
+    pub fn get_parent(&self, id: BlockId) -> Option<BlockId> {
         self.blocks.get(&id).and_then(|opt| opt.block.parent_id)
     }
 
@@ -127,7 +124,7 @@ impl Blockchain {
     /// chain. Equivalent to [`Blockchain::at_height`] called with
     /// [`Blockchain::max_height`].
     #[inline]
-    pub fn tip(&self) -> &[BlockID] {
+    pub fn tip(&self) -> &[BlockId] {
         self.blocks_by_height.last().unwrap()
     }
 
@@ -135,9 +132,9 @@ impl Blockchain {
     /// given block ID to the genesis block, in descending order of height and
     /// including the given block ID.     
     ///
-    /// If the blockchain does not contain a block with [`BlockID`] `id`, the
+    /// If the blockchain does not contain a block with [`BlockId`] `id`, the
     /// iterator will be empty.
-    pub fn ancestors_of(&self, id: BlockID) -> Ancestors<'_> {
+    pub fn ancestors_of(&self, id: BlockId) -> Ancestors<'_> {
         Ancestors::new(self, id)
     }
 
@@ -206,18 +203,18 @@ impl Default for Blockchain {
     }
 }
 
-impl Index<BlockID> for Blockchain {
+impl Index<BlockId> for Blockchain {
     type Output = BlockData;
 
-    fn index(&self, index: BlockID) -> &Self::Output {
+    fn index(&self, index: BlockId) -> &Self::Output {
         self.blocks.index(&index)
     }
 }
 
-impl Index<&BlockID> for Blockchain {
+impl Index<&BlockId> for Blockchain {
     type Output = BlockData;
 
-    fn index(&self, index: &BlockID) -> &Self::Output {
+    fn index(&self, index: &BlockId) -> &Self::Output {
         self.blocks.index(index)
     }
 }
@@ -228,12 +225,12 @@ impl Index<&BlockID> for Blockchain {
 /// See the [`ancestors_of`](Blockchain::ancestors_of) method of [`Blockchain`]
 /// for more information.
 pub struct Ancestors<'a> {
-    curr_id: Option<BlockID>,
+    curr_id: Option<BlockId>,
     chain: &'a Blockchain,
 }
 
 impl<'a> Ancestors<'a> {
-    fn new(chain: &'a Blockchain, start: BlockID) -> Self {
+    fn new(chain: &'a Blockchain, start: BlockId) -> Self {
         Self {
             curr_id: chain.blocks.contains_key(&start).then_some(start),
             chain,
@@ -242,7 +239,7 @@ impl<'a> Ancestors<'a> {
 }
 
 impl<'a> Iterator for Ancestors<'a> {
-    type Item = BlockID;
+    type Item = BlockId;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.curr_id {

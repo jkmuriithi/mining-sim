@@ -1,8 +1,8 @@
 use std::{error::Error, time::Instant};
 
-use mining_sim::prelude::*;
+use mining_sim::{prelude::*, results::selfish_revenue};
 
-const GMA: f64 = 0.0;
+const GAMMA: f64 = 0.4;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
@@ -10,17 +10,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let alpha = (0..50).map(|n| n as PowerValue / 100.0);
     let simulation = SimulationBuilder::new()
         .rounds(100000)
-        .add_miner(Honest::with_tie_breaker(TieBreaker::FavorMinerProb(2, GMA)))
+        .add_miner(Honest::with_tie_breaker(TieBreaker::FavorMinerProb(
+            2.into(),
+            GAMMA,
+        )))
         .add_miner(NDeficit::new(1))
-        .miner_power_iter(2, alpha)
+        .miner_power_iter(2.into(), alpha)
         .build()?;
 
     let data = simulation.run_all()?;
 
     let results = data
         .all()
-        .constant("Gamma", GMA)
-        .mining_power_func(2, "Ideal SM Revenue", selfish_revenue(GMA))
+        .constant("Gamma", GAMMA)
+        .mining_power_func(2.into(), "Ideal SM Revenue", selfish_revenue(GAMMA))
         .build();
 
     println!("{}", results);

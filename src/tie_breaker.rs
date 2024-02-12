@@ -2,7 +2,7 @@
 
 use rand::{seq::SliceRandom, Rng};
 
-use crate::{block::BlockID, blockchain::Blockchain, miner::MinerID};
+use crate::{block::BlockId, blockchain::Blockchain, miner::MinerId};
 
 /// Breaks ties between multiple blocks of at the tip of a blockchain's longest
 /// chain.
@@ -13,11 +13,11 @@ pub enum TieBreaker {
     EarliestPublished,
     /// Use the earliest block published by the specified miner, if such a block
     /// exists. Otherwise, use the earliest block published by any miner.
-    FavorMiner(MinerID),
+    FavorMiner(MinerId),
     /// With the given probability, use the earliest block published by the
     /// specified miner, if such a block exists. Otherwise, use the earliest
     /// block published by any *other* miner.
-    FavorMinerProb(MinerID, f64),
+    FavorMinerProb(MinerId, f64),
     /// Use a block picked uniformly at random.
     Random,
 }
@@ -25,7 +25,7 @@ pub enum TieBreaker {
 impl TieBreaker {
     /// Returns the block at the tip of the longest chain in `blockchain`,
     /// according to the given tie-breaking rule.
-    pub fn choose(&self, blockchain: &Blockchain) -> BlockID {
+    pub fn choose(&self, blockchain: &Blockchain) -> BlockId {
         let tip = blockchain.tip();
         let mut rng = rand::thread_rng();
 

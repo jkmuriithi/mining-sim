@@ -3,6 +3,7 @@ Simulator for a game theory-based model of blockchain mining.
 */
 
 // ## Todo:
+// - Make MinerID, BlockID, structs w/ repr(transparent)
 // - Create example code for each module/submodule
 // - Variable renaming for clarity
 // - Honest forking strategy (pretends it didn't hear certain blocks) and/or

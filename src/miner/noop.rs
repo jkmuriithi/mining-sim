@@ -1,10 +1,14 @@
 //! Mining strategy which never publishes a block
 
-use super::{Action, Miner, MinerID};
+use crate::{
+    block::BlockId,
+    blockchain::Blockchain,
+    miner::{Action, Miner, MinerId},
+};
 
-/// [`Noop::get_action`] always returns [`Action::Wait`].
+/// [`.get_action`](Noop::get_action) always returns [`Action::Wait`].
 #[derive(Debug, Clone, Default)]
-pub struct Noop(Option<MinerID>);
+pub struct Noop(MinerId);
 
 impl Noop {
     pub fn new() -> Self {
@@ -14,22 +18,18 @@ impl Noop {
 
 impl Miner for Noop {
     fn name(&self) -> String {
-        "No-op (Wait)".into()
+        "No-op".to_string()
     }
 
-    fn id(&self) -> super::MinerID {
-        self.0.expect("Miner ID to be set")
+    fn id(&self) -> MinerId {
+        self.0
     }
 
-    fn set_id(&mut self, id: super::MinerID) {
-        self.0 = Some(id);
+    fn set_id(&mut self, id: MinerId) {
+        self.0 = id;
     }
 
-    fn get_action(
-        &mut self,
-        _chain: &crate::Blockchain,
-        _block: Option<crate::block::BlockID>,
-    ) -> Action {
+    fn get_action(&mut self, _: &Blockchain, _: Option<BlockId>) -> Action {
         Action::Wait
     }
 }
