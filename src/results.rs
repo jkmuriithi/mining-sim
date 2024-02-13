@@ -128,6 +128,17 @@ impl ResultsBuilder {
         self
     }
 
+    /// Extract the raw [`SimulationOutput`] data from this [`ResultsBuilder`].
+    /// Useful for running custom statistical analysis.
+    ///
+    /// # Ordering
+    /// Simulations are run in the same order they are specified using
+    /// [`SimulationBuilder`], with repeated runs being grouped together.
+    /// The output data from this method follows this ordering as well.
+    pub fn data(self) -> Vec<SimulationOutput> {
+        self.data
+    }
+
     /// Include the "Longest Chain Length" column in the results table.
     pub fn longest_chain_length(mut self) -> Self {
         self.columns.insert(Column::LongestChainLength);
