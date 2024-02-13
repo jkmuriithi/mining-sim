@@ -68,17 +68,19 @@ impl<I, J> std::hash::Hash for WrapFunc<I, J> {
 }
 
 #[inline]
-pub fn median_of_floats(mut values: Vec<f64>) -> f64 {
-    debug_assert!(!values.is_empty(), "median of empty vec");
+fn nth_float(arr: &mut [f64], rank: usize) -> f64 {
+    *arr.select_nth_unstable_by(rank, |a, b| a.partial_cmp(b).unwrap()).1
+}
 
-    values.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+pub fn median_of_floats(values: &mut [f64]) -> f64 {
+    debug_assert!(!values.is_empty(), "median of empty vec");
 
     let len = values.len();
     let mid = len >> 1;
 
     if len & 1 == 0 {
-        (values[mid - 1] + values[mid]) * 0.5
+        0.5 * (nth_float(values, mid - 1) + nth_float(values, mid))
     } else {
-        values[mid]
+        nth_float(values, mid)
     }
 }

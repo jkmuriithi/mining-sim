@@ -471,7 +471,7 @@ impl Column {
             Self::LongestChainLength => (),
         }
 
-        let vls: Vec<_> = match &self {
+        let mut vls: Vec<_> = match &self {
             Self::BlocksPublished => data
                 .iter()
                 .map(|sim_output| sim_output.blockchain.num_blocks() as f64)
@@ -489,7 +489,7 @@ impl Column {
 
         let avg = match method {
             Average::Mean => vls.into_iter().sum::<f64>() / data.len() as f64,
-            Average::Median => crate::utils::median_of_floats(vls),
+            Average::Median => crate::utils::median_of_floats(&mut vls),
             Average::Max => vls.into_iter().reduce(|a, b| a.max(b)).unwrap(),
             Average::Min => vls.into_iter().reduce(|a, b| a.min(b)).unwrap(),
             Average::None => unreachable!(),
