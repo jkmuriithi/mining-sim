@@ -87,7 +87,7 @@ pub trait Miner: Debug + dyn_clone::DynClone + Send + Sync {
     /// Returns the name of this miner's strategy.
     ///
     /// The return value of this method will appear in the "Strategy Name"
-    /// column of [`SimulationResults`](crate::results::SimulationResults).
+    /// column of [`ResultsTable`](crate::results::ResultsTable).
     fn name(&self) -> String;
 
     /// Returns this miner's [`MinerId`].

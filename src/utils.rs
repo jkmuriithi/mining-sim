@@ -23,10 +23,7 @@ impl<I, J> WrapFunc<I, J> {
         N: Into<String>,
         F: Fn(I) -> J + Send + Sync + 'static,
     {
-        Self {
-            name: name.into(),
-            func: std::sync::Arc::new(func),
-        }
+        Self { name: name.into(), func: std::sync::Arc::new(func) }
     }
 
     pub fn call(&self, input: I) -> J {
@@ -67,5 +64,21 @@ impl<I, J> Ord for WrapFunc<I, J> {
 impl<I, J> std::hash::Hash for WrapFunc<I, J> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
+    }
+}
+
+#[inline]
+pub fn median_of_floats(mut values: Vec<f64>) -> f64 {
+    debug_assert!(!values.is_empty());
+
+    values.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let len = values.len();
+    let mid = len / 2;
+
+    if len & 1 == 1 {
+        values[mid]
+    } else {
+        (values[mid] + values[mid - 1]) / 2.0
     }
 }

@@ -22,7 +22,7 @@ pub use miner::{
 
 pub use power_dist::{PowerDistribution, PowerDistributionError, PowerValue};
 
-pub use results::{Format, SimulationResults, SimulationResultsBuilder};
+pub use results::{Average, Format, ResultsBuilder, ResultsTable};
 
 pub use simulation::{
     SimulationBuildError, SimulationBuilder, SimulationError, SimulationGroup,

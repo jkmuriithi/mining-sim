@@ -1,4 +1,4 @@
-//! Mining strategy which never publishes a block
+//! Strategy which never publishes a block
 
 use crate::{
     blockchain::{BlockId, Blockchain},

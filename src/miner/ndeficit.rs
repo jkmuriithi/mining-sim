@@ -6,8 +6,6 @@
 //  - state can be an instance variable which is updated in constant time using
 //    each get_action call; need some "abandonment" condition for when/if the LC
 //    changes to a new branch
-//  - move on to other parametric strategy spaces from Anthony's work after this
-//    one
 
 use std::collections::{HashSet, VecDeque};
 
@@ -25,10 +23,10 @@ pub struct NDeficit {
 
     // Blockchain state tracking
     capitulation: BlockId,
-    state: Vec<StateEntry>,
-    seen: HashSet<BlockId>,
-    our_blocks: VecDeque<BlockId>,
     honest_blocks: Vec<BlockId>,
+    our_blocks: VecDeque<BlockId>,
+    seen: HashSet<BlockId>,
+    state: Vec<StateEntry>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -41,10 +39,7 @@ enum StateEntry {
 
 impl NDeficit {
     pub fn new(i: usize) -> Self {
-        Self {
-            i,
-            ..Default::default()
-        }
+        Self { i, ..Default::default() }
     }
 
     fn clear_state(&mut self) {
@@ -229,32 +224,32 @@ impl Miner for NDeficit {
         chain: &Blockchain,
         block_mined: Option<BlockId>,
     ) -> super::Action {
-        self.update_state(chain, block_mined.as_ref());
-
         // Handle selfish mining fork case
         // FIXME: Forks are never encountered when up against an honest miner,
         // may need to implement "aggressive" strategy
-        // if self.our_blocks.len() == 1 {
-        //     let lc = chain.tip();
+        if self.our_blocks.is_empty() {
+            let lc = chain.tip();
 
-        //     let ours_at_lc =
-        //         lc.iter().find(|&&b| chain[b].block.miner_id == self.id);
-        //     let othr_at_lc =
-        //         lc.iter().find(|&&b| chain[b].block.miner_id != self.id);
+            let ours_at_lc =
+                lc.iter().find(|&&b| chain[b].block.miner_id == self.id);
+            let othr_at_lc =
+                lc.iter().find(|&&b| chain[b].block.miner_id != self.id);
 
-        //     if let (Some(parent_id), Some(_)) = (ours_at_lc, othr_at_lc) {
-        //         let block_id = self.our_blocks[0];
-        //         self.capitulate(block_id);
+            if let (Some(parent_id), Some(_), Some(block_id)) =
+                (ours_at_lc, othr_at_lc, block_mined)
+            {
+                self.capitulate(block_id);
 
-        //         return Action::Publish(Block {
-        //             id: block_id,
-        //             miner_id: self.id,
-        //             parent_id: Some(*parent_id),
-        //             txns: None,
-        //         });
-        //     }
-        // }
+                return Action::Publish(Block {
+                    id: block_id,
+                    miner_id: self.id,
+                    parent_id: Some(*parent_id),
+                    txns: None,
+                });
+            }
+        }
 
+        self.update_state(chain, block_mined.as_ref());
         self.map_state()
     }
 }

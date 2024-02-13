@@ -7,9 +7,10 @@ const GAMMA: f64 = 0.5;
 fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
 
-    let alpha = (0..50).map(|n| n as PowerValue / 100.0);
+    let alpha = (25..=50).map(|n| n as PowerValue / 100.0);
     let simulation = SimulationBuilder::new()
         .rounds(100000)
+        .repeat_all(20)
         .add_miner(Honest::with_tie_breaker(TieBreaker::FavorMinerProb(
             2.into(),
             GAMMA,
@@ -21,7 +22,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let data = simulation.run_all()?;
 
     let results = data
-        .all()
+        .average(Average::Max)
+        .rounds()
+        .revenue()
+        .strategy_names()
         .constant("Gamma", GAMMA)
         .mining_power_func(2.into(), "Ideal SM Revenue", selfish_revenue(GAMMA))
         .build();

@@ -14,7 +14,7 @@ use crate::{
     blockchain::{BlockId, BlockPublishingError, Blockchain},
     miner::{Action, Miner, MinerId},
     power_dist::{PowerDistribution, PowerDistributionError, PowerValue},
-    results::SimulationResultsBuilder,
+    results::ResultsBuilder,
 };
 
 /// Builds up a set of simulations based on the configuration parameters.
@@ -117,8 +117,7 @@ impl SimulationBuilder {
     /// miners. `miner` is a 1-based index over the miners that are added to
     /// this [`SimulationBuilder`], in the order of addition.
     pub fn miner_power(mut self, miner: MinerId, value: PowerValue) -> Self {
-        self.power_dists
-            .push(PowerDistribution::SetMiner(miner, value));
+        self.power_dists.push(PowerDistribution::SetMiner(miner, value));
 
         self
     }
@@ -130,8 +129,7 @@ impl SimulationBuilder {
         I: IntoIterator<Item = PowerValue>,
     {
         for val in values {
-            self.power_dists
-                .push(PowerDistribution::SetMiner(miner, val));
+            self.power_dists.push(PowerDistribution::SetMiner(miner, val));
         }
 
         self
@@ -206,7 +204,7 @@ impl SimulationGroup {
         SimulationBuilder::new()
     }
 
-    pub fn run_all(self) -> Result<SimulationResultsBuilder, SimulationError> {
+    pub fn run_all(self) -> Result<ResultsBuilder, SimulationError> {
         let SimulationGroup {
             blockchain,
             miners,
@@ -232,7 +230,7 @@ impl SimulationGroup {
         let outputs: Result<_, _> =
             sims.into_par_iter().map(|sim| sim.run()).collect();
 
-        Ok(SimulationResultsBuilder::new(outputs?, repeat_all))
+        Ok(ResultsBuilder::new(outputs?, repeat_all))
     }
 }
 
@@ -273,50 +271,46 @@ pub enum SimulationError {
 impl Simulation {
     /// Executes the configured simulation.
     fn run(self) -> Result<SimulationOutput, SimulationError> {
-        let Simulation {
-            mut blockchain,
-            mut miners,
-            power_dist,
-            rounds,
-        } = self;
+        let Simulation { mut blockchain, mut miners, power_dist, rounds } =
+            self;
 
         let mut blocks_by_miner: HashMap<MinerId, Vec<_>> = HashMap::new();
 
         // Safety: power distributions are validated during the simulation
         // build process
         let power_values = unsafe { power_dist.values_unchecked(miners.len()) };
-        WeightedIndex::new(power_values)?
+        let gamma = WeightedIndex::new(power_values)?
             .sample_iter(rand::thread_rng())
-            .map(|index| MinerId(index + 1))
-            .take(self.rounds)
             .enumerate()
-            .try_for_each(
-                |(round_idx, proposer)| -> Result<(), BlockPublishingError> {
-                    for m in miners.iter_mut() {
-                        let miner_id = m.id();
+            .map(|(round, proposer)| (round + 1, MinerId(proposer + 1)))
+            .take(self.rounds);
 
-                        let block_mined = (proposer == miner_id)
-                            .then_some(BlockId::from(round_idx + 1));
+        for (round, proposer) in gamma {
+            for m in miners.iter_mut() {
+                let miner_id = m.id();
 
-                        let blocks_published =
-                            match m.get_action(&blockchain, block_mined) {
-                                Action::Wait => vec![],
-                                Action::Publish(block) => vec![block],
-                                Action::PublishSet(blocks) => blocks,
-                            };
+                let block_mined =
+                    (proposer == miner_id).then_some(BlockId(round));
 
-                        for block in blocks_published {
-                            blocks_by_miner
-                                .entry(miner_id)
-                                .or_default()
-                                .push(block.id);
-                            blockchain.publish(block)?;
-                        }
-                    }
+                let blocks_published =
+                    match m.get_action(&blockchain, block_mined) {
+                        Action::Wait => vec![],
+                        Action::Publish(block) => vec![block],
+                        Action::PublishSet(blocks) => blocks,
+                    };
 
-                    Ok(())
-                },
-            )?;
+                for block in blocks_published {
+                    assert_eq!(
+                        block.miner_id, miner_id,
+                        "Miner {} published block with wrong MinerId",
+                        miner_id
+                    );
+
+                    blocks_by_miner.entry(miner_id).or_default().push(block.id);
+                    blockchain.publish(block)?;
+                }
+            }
+        }
 
         let longest_chain = HashSet::from_iter(blockchain.longest_chain());
         Ok(SimulationOutput {

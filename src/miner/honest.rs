@@ -1,4 +1,4 @@
-//! Implementation of the Honest (or Frontier) mining strategy
+//! Honest/Frontier strategy implementation
 
 use crate::{
     blockchain::{Block, BlockId, Blockchain},
@@ -19,10 +19,7 @@ impl Honest {
     }
 
     pub fn with_tie_breaker(tie_breaker: TieBreaker) -> Self {
-        Honest {
-            tie_breaker,
-            ..Default::default()
-        }
+        Honest { tie_breaker, ..Default::default() }
     }
 }
 

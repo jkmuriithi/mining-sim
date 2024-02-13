@@ -1,11 +1,11 @@
 /*!
 Control the appearance of simulation result data
 
-# Working with [`SimulationResults`]
+# Working with [`ResultsBuilder`]
 
 ## Examples
 
-Creating [`SimulationResults`] after running a simulation group:
+Creating a [`ResultsTable`] after running a simulation group:
 
 ```
 use mining_sim::prelude::*;
@@ -21,12 +21,9 @@ let sim = SimulationBuilder::new()
 let results_builder = sim.run_all().unwrap();
 
 let results = results_builder
-    // Average results of repeated simulations
-    .averaged()
-    // Include the number of rounds run per simulation
-    .rounds()
-    // Output results as CSV
-    .format(Format::CSV)
+    .average(Average::Median) // Take the median of repeated simulations' results
+    .rounds()                 // Include the number of rounds run per simulation
+    .format(Format::CSV)      // Output results as CSV
     .build();
 
 println!("{}", results);
@@ -53,18 +50,18 @@ use crate::{
 /// Floating point precision of results data.
 pub const FLOAT_PRECISION_DIGITS: usize = 6;
 
-/// Builder for [`SimulationResults`]. Typically produced by running a
+/// Builder for [`ResultsTable`]. Typically produced by running a
 /// [`SimulationGroup`](crate::simulation::SimulationGroup).
 #[derive(Debug, Clone)]
-pub struct SimulationResultsBuilder {
-    averaged: bool,
+pub struct ResultsBuilder {
+    average: Average,
     columns: BTreeSet<Column>,
     data: Vec<SimulationOutput>,
     format: Format,
-    repeat_all: NonZeroUsize,
+    repeated: NonZeroUsize,
 }
 
-/// Describes the appearance of a [`SimulationResults`] table as given by its
+/// Describes the appearance of a [`ResultsTable`] table as given by its
 /// [`Display`] implementation.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum Format {
@@ -75,16 +72,16 @@ pub enum Format {
     PrettyPrint,
 }
 
-impl SimulationResultsBuilder {
-    /// Create a new [`SimulationResultsBuilder`].
+impl ResultsBuilder {
+    /// Create a new [`ResultsBuilder`].
     pub(crate) fn new(
         data: Vec<SimulationOutput>,
-        repeat_all: NonZeroUsize,
+        repeated: NonZeroUsize,
     ) -> Self {
         Self {
             data,
-            repeat_all,
-            averaged: false,
+            repeated,
+            average: Average::default(),
             columns: BTreeSet::default(),
             format: Format::default(),
         }
@@ -94,7 +91,7 @@ impl SimulationResultsBuilder {
     /// "Miner `X` Strategy Name", "Miner `X` Revenue", and "Simulated Rounds"
     /// columns.
     ///
-    /// [`SimulationResultsBuilder::averaged`] must still be called separately
+    /// [`ResultsBuilder::average`] must still be called separately
     /// to create averaged data.
     pub fn all(self) -> Self {
         self.blocks_published()
@@ -104,13 +101,11 @@ impl SimulationResultsBuilder {
             .rounds()
     }
 
-    /// Average the results of repeated simulations and include the "Average Of"
-    /// column in the results table.
-    pub fn averaged(mut self) -> Self {
-        if self.repeat_all.get() > 1 {
-            self.averaged = true;
-            self.columns.insert(Column::AverageOf);
-        }
+    /// Average the results of repeated simulations based on the given
+    /// [`Average`] type. For types other than [`Average::None`], a column
+    /// describing the averaging method will be included in the results table.
+    pub fn average(mut self, average: Average) -> Self {
+        self.average = average;
 
         self
     }
@@ -128,8 +123,7 @@ impl SimulationResultsBuilder {
     where
         T: Into<String>,
     {
-        self.columns
-            .insert(Column::Constant(wrap!(title, move |_| value)));
+        self.columns.insert(Column::Constant(wrap!(title, move |_| value)));
 
         self
     }
@@ -164,8 +158,7 @@ impl SimulationResultsBuilder {
     pub fn strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
-            self.columns
-                .insert(Column::MinerStrategyName(miner_id.into()));
+            self.columns.insert(Column::MinerStrategyName(miner_id.into()));
         }
 
         self
@@ -196,47 +189,48 @@ impl SimulationResultsBuilder {
         self
     }
 
-    /// Create new [`SimulationResults`].
-    pub fn build(self) -> SimulationResults {
-        let SimulationResultsBuilder {
-            averaged,
-            mut columns,
-            data,
-            format,
-            repeat_all,
-        } = self;
+    /// Create new [`ResultsTable`].
+    pub fn build(self) -> ResultsTable {
+        let ResultsBuilder { average, mut columns, data, format, repeated } =
+            self;
 
         let num_miners = data[0].miners.len();
         for miner_id in 1..=num_miners {
             columns.insert(Column::MiningPower(miner_id.into()));
         }
 
+        match average {
+            Average::None => (),
+            _ => {
+                columns.insert(Column::AverageOf(average));
+            }
+        }
+
         let columns = Vec::from_iter(columns);
-        let rows = if averaged {
-            data.chunks(repeat_all.get())
-                .map(|sim_outputs| {
-                    columns
-                        .par_iter()
-                        .map(|col_type| col_type.get_average_value(sim_outputs))
-                        .collect()
-                })
-                .collect()
-        } else {
-            data.iter()
+        let rows = match average {
+            Average::None => data
+                .iter()
                 .map(|sim_output| {
                     columns
                         .par_iter()
                         .map(|col_type| col_type.get_value(sim_output))
                         .collect()
                 })
-                .collect()
+                .collect(),
+            _ => data
+                .chunks(repeated.get())
+                .map(|sim_outputs| {
+                    columns
+                        .par_iter()
+                        .map(|col_type| {
+                            col_type.get_average_value(average, sim_outputs)
+                        })
+                        .collect()
+                })
+                .collect(),
         };
 
-        SimulationResults {
-            columns,
-            format,
-            rows,
-        }
+        ResultsTable { columns, format, rows }
     }
 }
 
@@ -244,13 +238,13 @@ impl SimulationResultsBuilder {
 /// [`SimulationGroup`](crate::simulation::SimulationGroup). The results table
 /// is given by the struct's [`Display`] implementation, as specified by
 /// its [`Format`].
-pub struct SimulationResults {
+pub struct ResultsTable {
     columns: Vec<Column>,
     format: Format,
     rows: Vec<Vec<ColumnValue>>,
 }
 
-impl SimulationResults {
+impl ResultsTable {
     const SEPARATOR_VERTICAL: char = '|';
     const SEPARATOR_HORIZONTAL: char = '-';
 
@@ -263,13 +257,10 @@ impl SimulationResults {
     }
 }
 
-impl Display for SimulationResults {
+impl Display for ResultsTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let titles: Vec<_> = self
-            .columns
-            .iter()
-            .map(|col_type| col_type.to_string())
-            .collect();
+        let titles: Vec<_> =
+            self.columns.iter().map(|col_type| col_type.to_string()).collect();
 
         match self.format {
             Format::CSV => {
@@ -331,6 +322,27 @@ impl Display for SimulationResults {
     }
 }
 
+/// Methods of extracting an average/central value from a set of repeated
+/// simulations.
+///
+/// In the process of creating an results table, the given averaging method is
+/// only applied to the values of columns which change over time.
+#[repr(u8)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Average {
+    #[default]
+    /// Include all repeated values.
+    None,
+    /// Arithmetic mean of all values.
+    Mean,
+    /// Median of all values.
+    Median,
+    /// Maximum of all values.
+    Max,
+    /// Minimum of all values.
+    Min,
+}
+
 /// Type of column that can appear in a data table.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Column {
@@ -342,7 +354,7 @@ enum Column {
     MiningPowerFunction(MinerId, WrapFunc<PowerValue, f64>),
     Constant(WrapFunc<(), f64>),
     Rounds,
-    AverageOf,
+    AverageOf(Average),
     BlocksPublished,
     LongestChainLength,
 }
@@ -433,54 +445,58 @@ impl Column {
 
                 ColumnValue::LongestChainLength(length)
             }
-            Self::AverageOf => {
-                let times = 1;
-
-                ColumnValue::AverageOf(times)
-            }
+            Self::AverageOf(_) => unreachable!(
+                "never need the single value of the average descriptor column"
+            ),
         }
     }
 
-    fn get_average_value(&self, data: &[SimulationOutput]) -> ColumnValue {
+    fn get_average_value(
+        &self,
+        method: Average,
+        data: &[SimulationOutput],
+    ) -> ColumnValue {
         match &self {
-            Self::BlocksPublished => {
-                let mut num = data
-                    .iter()
-                    .map(|sim_output| sim_output.blockchain.num_blocks() as f64)
-                    .sum();
-                num /= data.len() as f64;
-
-                ColumnValue::BlocksPublished(num)
-            }
-            Self::MinerRevenue(miner_id) => {
-                let mut revenue = data
-                    .iter()
-                    .map(|sim_output| revenue_of(miner_id, sim_output))
-                    .sum();
-                revenue /= data.len() as f64;
-
-                ColumnValue::MinerRevenue(revenue)
-            }
-            Self::LongestChainLength => {
-                let mut length = data
-                    .iter()
-                    .map(|sim_output| sim_output.longest_chain.len() as f64)
-                    .sum();
-                length /= data.len() as f64;
-
-                ColumnValue::LongestChainLength(length)
-            }
-            Self::AverageOf => {
-                let times = data.len();
-
-                ColumnValue::AverageOf(times)
-            }
-            // otherwise use the first simulation's value
+            Self::AverageOf(_) => return ColumnValue::AverageOf(data.len()),
             Self::Constant(_)
             | Self::MinerStrategyName(_)
             | Self::MiningPower(_)
             | Self::MiningPowerFunction(_, _)
-            | Self::Rounds => self.get_value(&data[0]),
+            | Self::Rounds => return self.get_value(&data[0]),
+            Self::BlocksPublished => (),
+            Self::MinerRevenue(_) => (),
+            Self::LongestChainLength => (),
+        }
+
+        let vls: Vec<_> = match &self {
+            Self::BlocksPublished => data
+                .iter()
+                .map(|sim_output| sim_output.blockchain.num_blocks() as f64)
+                .collect(),
+            Self::MinerRevenue(miner_id) => data
+                .iter()
+                .map(|sim_output| revenue_of(miner_id, sim_output))
+                .collect(),
+            Self::LongestChainLength => data
+                .iter()
+                .map(|sim_output| sim_output.longest_chain.len() as f64)
+                .collect(),
+            _ => unreachable!(),
+        };
+
+        let avg = match method {
+            Average::Mean => vls.into_iter().sum::<f64>() / data.len() as f64,
+            Average::Median => crate::utils::median_of_floats(vls),
+            Average::Max => vls.into_iter().reduce(|a, b| a.max(b)).unwrap(),
+            Average::Min => vls.into_iter().reduce(|a, b| a.min(b)).unwrap(),
+            Average::None => unreachable!(),
+        };
+
+        match &self {
+            Self::BlocksPublished => ColumnValue::BlocksPublished(avg),
+            Self::MinerRevenue(_) => ColumnValue::MinerRevenue(avg),
+            Self::LongestChainLength => ColumnValue::LongestChainLength(avg),
+            _ => unreachable!(),
         }
     }
 }
@@ -488,9 +504,13 @@ impl Column {
 impl Display for Column {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            Self::AverageOf => {
-                write!(f, "Average Of")
-            }
+            Self::AverageOf(method) => match method {
+                Average::Mean => write!(f, "Mean Of"),
+                Average::Median => write!(f, "Median Of"),
+                Average::Max => write!(f, "Max Of"),
+                Average::Min => write!(f, "Min Of"),
+                Average::None => unreachable!(),
+            },
             Self::BlocksPublished => {
                 write!(f, "Blocks Published")
             }
@@ -555,7 +575,7 @@ impl Display for ColumnValue {
 
 /// Returns an instance of the ideal Selfish Miner revenue function from Eyal
 /// and Sirer's paper which can be used as input to
-/// [`SimulationResultsBuilder::mining_power_func`].
+/// [`ResultsBuilder::mining_power_func`].
 pub fn selfish_revenue(gamma: f64) -> impl Fn(PowerValue) -> f64 {
     move |a: PowerValue| -> f64 {
         (a * (1.0 - a).powi(2) * (4.0 * a + gamma * (1.0 - 2.0 * a))
@@ -566,7 +586,7 @@ pub fn selfish_revenue(gamma: f64) -> impl Fn(PowerValue) -> f64 {
 
 /// Ideal Nothing-At-Stake miner revenue function from Weinberg and Ferrera's
 /// paper. Can be used as input to
-/// [`SimulationResultsBuilder::mining_power_func`].
+/// [`ResultsBuilder::mining_power_func`].
 pub fn nsm_revenue(a: PowerValue) -> f64 {
     (4.0 * a.powi(2) - 8.0 * a.powi(3) - a.powi(4) + 7.0 * a.powi(5)
         - 3.0 * a.powi(6))

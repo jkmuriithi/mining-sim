@@ -164,10 +164,7 @@ impl Blockchain {
         };
 
         if block.id <= parent_data.block.id {
-            return Err(InvalidParent {
-                child: block.id,
-                parent: parent_id,
-            });
+            return Err(InvalidParent { child: block.id, parent: parent_id });
         }
 
         parent_data.children.push(block.id);
@@ -183,14 +180,8 @@ impl Blockchain {
             self.blocks_by_height[height].push(block.id);
         }
 
-        self.blocks.insert(
-            block.id,
-            BlockData {
-                block,
-                height,
-                children: vec![],
-            },
-        );
+        self.blocks
+            .insert(block.id, BlockData { block, height, children: vec![] });
 
         Ok(())
     }

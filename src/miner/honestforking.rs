@@ -9,8 +9,7 @@ use crate::{
     tie_breaker::TieBreaker,
 };
 
-/// An honest miner which mines one behind the longest chain with
-/// probability `p`.
+/// Mines one behind the longest chain with probability `p`.
 #[derive(Debug, Clone, Default)]
 pub struct HonestForking {
     id: MinerId,
@@ -20,18 +19,11 @@ pub struct HonestForking {
 
 impl HonestForking {
     pub fn new(p: f64) -> Self {
-        HonestForking {
-            p,
-            ..Default::default()
-        }
+        HonestForking { p, ..Default::default() }
     }
 
     pub fn with_tie_breaker(p: f64, tie_breaker: TieBreaker) -> Self {
-        HonestForking {
-            p,
-            tie_breaker,
-            ..Default::default()
-        }
+        HonestForking { p, tie_breaker, ..Default::default() }
     }
 }
 
