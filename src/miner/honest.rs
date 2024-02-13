@@ -1,4 +1,4 @@
-//! Honest/Frontier strategy implementation
+//! Honest/Frontier mining strategy
 
 use crate::{
     blockchain::{Block, BlockId, Blockchain},
@@ -14,10 +14,12 @@ pub struct Honest {
 }
 
 impl Honest {
+    /// Creates a new honest miner.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Creates a new honest miner which breaks ties using `tie_breaker`.
     pub fn with_tie_breaker(tie_breaker: TieBreaker) -> Self {
         Honest { tie_breaker, ..Default::default() }
     }

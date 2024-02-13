@@ -3,9 +3,10 @@ Simulator for a game theory-based model of blockchain mining.
 */
 
 // ## Todo:
-// - Make MinerID, BlockID, structs w/ repr(transparent)
+// - Percent trait which turns valid integer ranges into ranges of percentage values
+//   (to make describing PowerValue ranges easier)
+//     - example: (0..=50).percent()
 // - Create example code for each module/submodule
-// - Variable renaming for clarity
 // - Honest forking strategy (pretends it didn't hear certain blocks) and/or
 //   global simulation latency modeling
 //     - one latency model: exponential distribution of blocks which
@@ -15,7 +16,6 @@ Simulator for a game theory-based model of blockchain mining.
 //       block
 //     - Can we tell when a strategy is "excessively patient"?
 //       (Or use a flag to let users know when that's a problem)
-// - Add a real Genesis miner (implement and use a simple Miner that always waits)
 
 // ## Issues:
 // - Windows NT kernel seems to be taking up a majority of the execution time

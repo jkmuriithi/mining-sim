@@ -189,7 +189,6 @@ mod tests {
 }
 
 /// Container for a group of simulations which run on the same set of miners.
-/// Simulations should be run using this struct's `run_all` method.
 #[derive(Debug, Clone)]
 pub struct SimulationGroup {
     blockchain: Option<Blockchain>,
@@ -200,10 +199,12 @@ pub struct SimulationGroup {
 }
 
 impl SimulationGroup {
+    /// Returns the builder for this struct.
     pub fn builder() -> SimulationBuilder {
         SimulationBuilder::new()
     }
 
+    /// Runs all configured simulations in parallel using [`rayon`].
     pub fn run_all(self) -> Result<ResultsBuilder, SimulationError> {
         let SimulationGroup {
             blockchain,
@@ -274,7 +275,7 @@ impl Simulation {
         let Simulation { mut blockchain, mut miners, power_dist, rounds } =
             self;
 
-        let mut blocks_by_miner: HashMap<MinerId, Vec<_>> = HashMap::new();
+        let mut blocks_by_miner: HashMap<_, Vec<_>> = HashMap::new();
 
         // Safety: power distributions are validated during the simulation
         // build process

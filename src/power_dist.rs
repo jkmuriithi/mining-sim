@@ -42,11 +42,15 @@ impl PowerDistribution {
     /// Allowable difference between a distribution sum and 1.0.
     const EPSILON_POWER: PowerValue = 1e-6;
 
+    /// Returns true if the discrete distribution described by this
+    /// [`PowerDistribution`] is valid over `num_miners`.
     #[inline]
     pub fn is_valid(&self, num_miners: usize) -> bool {
         self.validate(num_miners).is_ok()
     }
 
+    /// Checks if the discrete distribution described by this
+    /// [`PowerDistribution`] is valid over `num_miners`.
     pub fn validate(
         &self,
         num_miners: usize,
@@ -102,6 +106,9 @@ impl PowerDistribution {
         }
     }
 
+    /// Returns the power of `miner_id` according to this power distribution.
+    /// Returns a [`PowerDistributionError`] if the underlying distribution is
+    /// invalid over `num_miners`.
     pub fn power_of(
         &self,
         miner_id: MinerId,
@@ -112,7 +119,10 @@ impl PowerDistribution {
         Ok(unsafe { self.power_of_unchecked(miner_id, num_miners) })
     }
 
-    /// # Safety
+    /// Equivalent to calling [`.power_of()`](Self::power_of) without checking
+    /// the validity of the underlying distribution.   
+    ///
+    /// # Safety  
     /// This function expects the underlying power distribution to be a valid
     /// discrete probability distribution over the given number of miners.
     pub unsafe fn power_of_unchecked(
@@ -133,6 +143,9 @@ impl PowerDistribution {
         }
     }
 
+    /// Returns the power values described by this power distribution as a
+    /// vector. Returns a [`PowerDistributionError`] if the underlying
+    /// distribution is invalid over `num_miners`.
     pub fn values(
         &self,
         num_miners: usize,
@@ -142,7 +155,10 @@ impl PowerDistribution {
         Ok(unsafe { self.values_unchecked(num_miners) })
     }
 
-    /// # Safety
+    /// Equivalent to calling [`.values()`](Self::values) without checking
+    /// the validity of the underlying distribution.   
+    ///
+    /// # Safety  
     /// This function expects the underlying power distribution to be a valid
     /// discrete probability distribution over the given number of miners.
     pub unsafe fn values_unchecked(

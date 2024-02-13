@@ -1,5 +1,4 @@
-//! Honest miner implementation which randomly creates forks at the tip of the
-//! blockchain
+//! Honest mining with random forking
 
 use rand::Rng;
 
@@ -9,7 +8,8 @@ use crate::{
     tie_breaker::TieBreaker,
 };
 
-/// Mines one behind the longest chain with probability `p`.
+/// Mines one behind the longest chain with probability `p`, following the
+/// Honest strategy otherwise.
 #[derive(Debug, Clone, Default)]
 pub struct HonestForking {
     id: MinerId,
@@ -18,10 +18,13 @@ pub struct HonestForking {
 }
 
 impl HonestForking {
+    /// Creates a new honest forking miner.
     pub fn new(p: f64) -> Self {
         HonestForking { p, ..Default::default() }
     }
 
+    /// Creates a new honest forking miner which breaks ties using
+    /// `tie_breaker`.
     pub fn with_tie_breaker(p: f64, tie_breaker: TieBreaker) -> Self {
         HonestForking { p, tie_breaker, ..Default::default() }
     }
@@ -29,7 +32,7 @@ impl HonestForking {
 
 impl Miner for HonestForking {
     fn name(&self) -> String {
-        format!("Honest Forking, p={}", self.p)
+        format!("Honest Forking (p={})", self.p)
     }
 
     fn id(&self) -> MinerId {
@@ -49,23 +52,16 @@ impl Miner for HonestForking {
             Some(block_id) => {
                 let lc = self.tie_breaker.choose(chain);
 
-                if rand::thread_rng().gen_bool(self.p) {
-                    Action::Publish(Block {
-                        id: block_id,
-                        parent_id: Some(
-                            chain[lc].block.parent_id.unwrap_or(lc),
-                        ),
-                        miner_id: self.id,
-                        txns: None,
-                    })
-                } else {
-                    Action::Publish(Block {
-                        id: block_id,
-                        parent_id: Some(lc),
-                        miner_id: self.id,
-                        txns: None,
-                    })
-                }
+                Action::Publish(Block {
+                    id: block_id,
+                    parent_id: if rand::thread_rng().gen_bool(self.p) {
+                        chain[lc].block.parent_id.or(Some(lc))
+                    } else {
+                        Some(lc)
+                    },
+                    miner_id: self.id,
+                    txns: None,
+                })
             }
             None => Action::Wait,
         }

@@ -10,6 +10,7 @@ use crate::{
 pub struct Noop(MinerId);
 
 impl Noop {
+    /// Creates a new [`Noop`] miner.
     pub fn new() -> Self {
         Self::default()
     }

@@ -8,7 +8,8 @@ use crate::{
     tie_breaker::TieBreaker,
 };
 
-/// Hides blocks mined until the  
+/// Follows the selfish mining strategy described by
+/// [Eyal and Sirer](https://doi.org/10.48550/arXiv.1311.0243).
 #[derive(Debug, Default, Clone)]
 pub struct Selfish {
     hidden_blocks: VecDeque<Block>,
@@ -18,6 +19,7 @@ pub struct Selfish {
 }
 
 impl Selfish {
+    /// Creates a new selfish miner.
     pub fn new() -> Self {
         Self::default()
     }

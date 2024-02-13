@@ -1,11 +1,10 @@
 /*!
-Control the appearance of simulation result data
-
-# Working with [`ResultsBuilder`]
+Create and modify tables of simulation results
 
 ## Examples
 
-Creating a [`ResultsTable`] after running a simulation group:
+Creating a [`ResultsTable`] after running a
+[`SimulationGroup`](crate::simulation::SimulationGroup):
 
 ```
 use mining_sim::prelude::*;
@@ -28,14 +27,6 @@ let results = results_builder
 
 println!("{}", results);
 ```
-
-# Formatting Results
-
-
-# Aggregating Results
-TODO: Specify and implementing different aggregation methods (median, mean, max, min)
-for repeated sims
-
 */
 
 use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
@@ -48,7 +39,7 @@ use crate::{
 };
 
 /// Floating point precision of results data.
-pub const FLOAT_PRECISION_DIGITS: usize = 6;
+pub const F64_DISPLAY_DIGITS: usize = 6;
 
 /// Builder for [`ResultsTable`]. Typically produced by running a
 /// [`SimulationGroup`](crate::simulation::SimulationGroup).
@@ -59,6 +50,24 @@ pub struct ResultsBuilder {
     data: Vec<SimulationOutput>,
     format: Format,
     repeated: NonZeroUsize,
+}
+
+/// Methods of extracting an average/central value from a set of repeated
+/// simulations.
+#[repr(u8)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Average {
+    #[default]
+    /// Include all repeated values.
+    None,
+    /// Arithmetic mean of all values.
+    Mean,
+    /// Median of all values.
+    Median,
+    /// Maximum of all values.
+    Max,
+    /// Minimum of all values.
+    Min,
 }
 
 /// Describes the appearance of a [`ResultsTable`] table as given by its
@@ -104,6 +113,9 @@ impl ResultsBuilder {
     /// Average the results of repeated simulations based on the given
     /// [`Average`] type. For types other than [`Average::None`], a column
     /// describing the averaging method will be included in the results table.
+    ///
+    /// In the process of creating a results table, this averaging method
+    /// is only applied to columns which vary between simulation runs.
     pub fn average(mut self, average: Average) -> Self {
         self.average = average;
 
@@ -334,31 +346,10 @@ impl Display for ResultsTable {
     }
 }
 
-/// Methods of extracting an average/central value from a set of repeated
-/// simulations.
-///
-/// In the process of creating a results table, the given averaging method is
-/// only applied to the values of columns which change over time.
-#[repr(u8)]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Average {
-    #[default]
-    /// Include all repeated values.
-    None,
-    /// Arithmetic mean of all values.
-    Mean,
-    /// Median of all values.
-    Median,
-    /// Maximum of all values.
-    Max,
-    /// Minimum of all values.
-    Min,
-}
-
-/// Type of column that can appear in a data table.
+/// Type of column that can appear in a [`ResultsTable`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Column {
-    // Variant order determines the order of columns in results tables:
+    // Variant order determines the order of columns:
     // https://doc.rust-lang.org/stable/std/cmp/trait.PartialOrd.html#derivable
     MinerStrategyName(MinerId),
     MiningPower(MinerId),
@@ -558,28 +549,28 @@ impl Display for ColumnValue {
                 write!(f, "{}", repeats)
             }
             Self::BlocksPublished(num) => {
-                write!(f, "{:.1$}", num, FLOAT_PRECISION_DIGITS)
+                write!(f, "{:.1$}", num, F64_DISPLAY_DIGITS)
             }
             Self::Constant(value) => {
-                write!(f, "{:.1$}", value, FLOAT_PRECISION_DIGITS)
+                write!(f, "{:.1$}", value, F64_DISPLAY_DIGITS)
             }
             Self::MinerStrategyName(name) => {
                 write!(f, "{}", name)
             }
             Self::MiningPower(power) => {
-                write!(f, "{:.1$}", power, FLOAT_PRECISION_DIGITS)
+                write!(f, "{:.1$}", power, F64_DISPLAY_DIGITS)
             }
             Self::MiningPowerFunction(value) => {
-                write!(f, "{:.1$}", value, FLOAT_PRECISION_DIGITS)
+                write!(f, "{:.1$}", value, F64_DISPLAY_DIGITS)
             }
             Self::MinerRevenue(revenue) => {
-                write!(f, "{:.1$}", revenue, FLOAT_PRECISION_DIGITS)
+                write!(f, "{:.1$}", revenue, F64_DISPLAY_DIGITS)
             }
             Self::Rounds(rounds) => {
                 write!(f, "{}", rounds)
             }
             Self::LongestChainLength(length) => {
-                write!(f, "{:.1$}", length, FLOAT_PRECISION_DIGITS)
+                write!(f, "{:.1$}", length, F64_DISPLAY_DIGITS)
             }
         }
     }

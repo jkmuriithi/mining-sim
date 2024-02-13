@@ -15,6 +15,8 @@ use crate::{
     tie_breaker::TieBreaker,
 };
 
+/// An `i-Deficit` miner which belongs to the N-Deficit family of mining
+/// strategies described by [Hein](http://arks.princeton.edu/ark:/88435/dsp01n583xz19p).
 #[derive(Debug, Clone, Default)]
 pub struct NDeficit {
     i: usize,
@@ -38,6 +40,7 @@ enum StateEntry {
 }
 
 impl NDeficit {
+    /// Creates a new `i-Deficit` miner.
     pub fn new(i: usize) -> Self {
         Self { i, ..Default::default() }
     }
@@ -238,6 +241,7 @@ impl Miner for NDeficit {
             if let (Some(parent_id), Some(_), Some(block_id)) =
                 (ours_at_lc, othr_at_lc, block_mined)
             {
+                println!("fork case");
                 self.capitulate(block_id);
 
                 return Action::Publish(Block {
