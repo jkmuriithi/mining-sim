@@ -125,7 +125,7 @@ impl NDeficit {
                     id,
                     parent_id: Some(parent),
                     miner_id: self.id,
-                    txns: None,
+                    txns: vec![],
                 }
             });
             parent = id;
@@ -248,7 +248,7 @@ impl Miner for NDeficit {
                     id: block_id,
                     miner_id: self.id,
                     parent_id: Some(*parent_id),
-                    txns: None,
+                    txns: vec![],
                 });
             }
         }

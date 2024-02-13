@@ -63,7 +63,7 @@ impl Miner for Selfish {
                     id: block_id,
                     parent_id: Some(parent_id),
                     miner_id: self.id,
-                    txns: None,
+                    txns: vec![],
                 };
 
                 let lc = chain.tip();

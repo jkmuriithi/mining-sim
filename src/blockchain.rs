@@ -51,7 +51,7 @@ impl Blockchain {
                     id: Self::GENESIS_ID,
                     parent_id: None,
                     miner_id: Self::GENESIS_MINER,
-                    txns: None,
+                    txns: vec![],
                 },
                 height: 0,
                 children: vec![],
@@ -252,7 +252,7 @@ pub struct Block {
     /// ID of this block's miner.
     pub miner_id: MinerId,
     /// Transaction data included in this block.
-    pub txns: Option<Vec<Transaction>>,
+    pub txns: Vec<Transaction>,
 }
 
 impl PartialEq for Block {

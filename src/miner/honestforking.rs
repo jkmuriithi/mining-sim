@@ -60,7 +60,7 @@ impl Miner for HonestForking {
                         Some(lc)
                     },
                     miner_id: self.id,
-                    txns: None,
+                    txns: vec![],
                 })
             }
             None => Action::Wait,

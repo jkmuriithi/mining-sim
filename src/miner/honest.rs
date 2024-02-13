@@ -48,7 +48,7 @@ impl Miner for Honest {
                 id: block_id,
                 parent_id: Some(self.tie_breaker.choose(chain)),
                 miner_id: self.id,
-                txns: None,
+                txns: vec![],
             }),
             None => Action::Wait,
         }
