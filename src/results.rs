@@ -133,8 +133,9 @@ impl ResultsBuilder {
     ///
     /// # Ordering
     /// Simulations are run in the same order they are specified using
-    /// [`SimulationBuilder`], with repeated runs being grouped together.
-    /// The output data from this method follows this ordering as well.
+    /// [`SimulationBuilder`](crate::simulation::SimulationBuilder), with
+    /// repeated runs being grouped together. The output data from this method
+    /// follows this ordering as well.
     pub fn data(self) -> Vec<SimulationOutput> {
         self.data
     }
