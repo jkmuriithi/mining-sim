@@ -337,7 +337,7 @@ impl Display for ResultsTable {
 /// Methods of extracting an average/central value from a set of repeated
 /// simulations.
 ///
-/// In the process of creating an results table, the given averaging method is
+/// In the process of creating a results table, the given averaging method is
 /// only applied to the values of columns which change over time.
 #[repr(u8)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
