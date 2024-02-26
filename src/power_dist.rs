@@ -180,6 +180,35 @@ impl PowerDistribution {
     }
 }
 
+/// Helper trait for turning inclusive integer ranges into percentages.
+/// # Example
+/// ```
+/// use mining_sim::power_dist::Percent;
+///
+/// for p in (0..=10).percent() {
+///    println!("{}", p);
+/// }
+/// ```
+pub trait Percent {
+    /// Returns an iterator over percentage values. Can be used with
+    /// [`SimulationBuilder`](crate::simulation::SimulationBuilder)
+    /// to describe distributions of mining power.
+    fn percent(self) -> impl Iterator<Item = PowerValue>;
+}
+
+impl Percent for std::ops::RangeInclusive<usize> {
+    fn percent(self) -> impl Iterator<Item = PowerValue> {
+        assert!(
+            (0..=100).contains(self.start()) && (0..=100).contains(self.end()),
+            "invalid percent range {} to {}",
+            self.start(),
+            self.end()
+        );
+
+        self.map(|n| n as PowerValue / 100.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::PowerDistribution;

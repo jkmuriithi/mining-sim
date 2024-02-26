@@ -135,7 +135,8 @@ impl ResultsBuilder {
     where
         T: Into<String>,
     {
-        self.columns.insert(Column::Constant(wrap!(title, move |_| value)));
+        self.columns
+            .insert(Column::Constant(wrap!(title, move |_| value)));
 
         self
     }
@@ -182,7 +183,8 @@ impl ResultsBuilder {
     pub fn strategy_names(mut self) -> Self {
         let num_miners = self.data[0].miners.len();
         for miner_id in 1..=num_miners {
-            self.columns.insert(Column::MinerStrategyName(miner_id.into()));
+            self.columns
+                .insert(Column::MinerStrategyName(miner_id.into()));
         }
 
         self
@@ -215,8 +217,13 @@ impl ResultsBuilder {
 
     /// Create new [`ResultsTable`].
     pub fn build(self) -> ResultsTable {
-        let ResultsBuilder { average, mut columns, data, format, repeated } =
-            self;
+        let ResultsBuilder {
+            average,
+            mut columns,
+            data,
+            format,
+            repeated,
+        } = self;
 
         let num_miners = data[0].miners.len();
         for miner_id in 1..=num_miners {
@@ -254,7 +261,11 @@ impl ResultsBuilder {
                 .collect(),
         };
 
-        ResultsTable { columns, format, rows }
+        ResultsTable {
+            columns,
+            format,
+            rows,
+        }
     }
 }
 
@@ -283,8 +294,11 @@ impl ResultsTable {
 
 impl Display for ResultsTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let titles: Vec<_> =
-            self.columns.iter().map(|col_type| col_type.to_string()).collect();
+        let titles: Vec<_> = self
+            .columns
+            .iter()
+            .map(|col_type| col_type.to_string())
+            .collect();
 
         match self.format {
             Format::CSV => {

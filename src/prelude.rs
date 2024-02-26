@@ -20,7 +20,9 @@ pub use miner::{
     noop::Noop, selfish::Selfish, Action, Miner, MinerId,
 };
 
-pub use power_dist::{PowerDistribution, PowerDistributionError, PowerValue};
+pub use power_dist::{
+    Percent, PowerDistribution, PowerDistributionError, PowerValue,
+};
 
 pub use results::{
     nsm_revenue, selfish_revenue, Average, Format, ResultsBuilder, ResultsTable,

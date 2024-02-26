@@ -41,7 +41,7 @@ impl Miner for MyMiner {
                 id: block_id,
                 parent_id: Some(self.tie_breaker.choose(chain)),
                 miner_id: self.id,
-                txns: None,
+                txns: vec![],
             }),
             None => Action::Wait,
         }
@@ -143,7 +143,7 @@ impl From<usize> for MinerId {
 
 impl Default for MinerId {
     fn default() -> Self {
-        Self::from(1)
+        Self(1)
     }
 }
 impl std::fmt::Display for MinerId {

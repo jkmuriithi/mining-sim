@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .repeat_all(20)
         .add_miner(Honest::new())
         .add_miner(NDeficit::new(1))
-        .miner_power_iter(MinerId::from(2), (25..=50).map(|n| n as f64 / 100.0))
+        .miner_power_iter(MinerId::from(2), (25..=50).percent())
         .build()?;
 
     let results_builder = simulation.run_all()?;

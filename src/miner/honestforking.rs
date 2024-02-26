@@ -20,13 +20,20 @@ pub struct HonestForking {
 impl HonestForking {
     /// Creates a new honest forking miner.
     pub fn new(p: f64) -> Self {
-        HonestForking { p, ..Default::default() }
+        HonestForking {
+            p,
+            ..Default::default()
+        }
     }
 
     /// Creates a new honest forking miner which breaks ties using
     /// `tie_breaker`.
     pub fn with_tie_breaker(p: f64, tie_breaker: TieBreaker) -> Self {
-        HonestForking { p, tie_breaker, ..Default::default() }
+        HonestForking {
+            p,
+            tie_breaker,
+            ..Default::default()
+        }
     }
 }
 

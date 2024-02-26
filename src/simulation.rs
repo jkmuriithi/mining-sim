@@ -117,7 +117,8 @@ impl SimulationBuilder {
     /// miners. `miner` is a 1-based index over the miners that are added to
     /// this [`SimulationBuilder`], in the order of addition.
     pub fn miner_power(mut self, miner: MinerId, value: PowerValue) -> Self {
-        self.power_dists.push(PowerDistribution::SetMiner(miner, value));
+        self.power_dists
+            .push(PowerDistribution::SetMiner(miner, value));
 
         self
     }
@@ -129,7 +130,8 @@ impl SimulationBuilder {
         I: IntoIterator<Item = PowerValue>,
     {
         for val in values {
-            self.power_dists.push(PowerDistribution::SetMiner(miner, val));
+            self.power_dists
+                .push(PowerDistribution::SetMiner(miner, val));
         }
 
         self
@@ -272,8 +274,12 @@ pub enum SimulationError {
 impl Simulation {
     /// Executes the configured simulation.
     fn run(self) -> Result<SimulationOutput, SimulationError> {
-        let Simulation { mut blockchain, mut miners, power_dist, rounds } =
-            self;
+        let Simulation {
+            mut blockchain,
+            mut miners,
+            power_dist,
+            rounds,
+        } = self;
 
         let mut blocks_by_miner: HashMap<_, Vec<_>> = HashMap::new();
 

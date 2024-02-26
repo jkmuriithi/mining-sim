@@ -23,7 +23,10 @@ impl<I, J> WrapFunc<I, J> {
         N: Into<String>,
         F: Fn(I) -> J + Send + Sync + 'static,
     {
-        Self { name: name.into(), func: std::sync::Arc::new(func) }
+        Self {
+            name: name.into(),
+            func: std::sync::Arc::new(func),
+        }
     }
 
     pub fn call(&self, input: I) -> J {
@@ -69,7 +72,8 @@ impl<I, J> std::hash::Hash for WrapFunc<I, J> {
 
 #[inline]
 fn nth_float(arr: &mut [f64], rank: usize) -> f64 {
-    *arr.select_nth_unstable_by(rank, |a, b| a.partial_cmp(b).unwrap()).1
+    *arr.select_nth_unstable_by(rank, |a, b| a.partial_cmp(b).unwrap())
+        .1
 }
 
 pub fn median_of_floats(values: &mut [f64]) -> f64 {

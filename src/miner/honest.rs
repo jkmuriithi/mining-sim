@@ -21,7 +21,10 @@ impl Honest {
 
     /// Creates a new honest miner which breaks ties using `tie_breaker`.
     pub fn with_tie_breaker(tie_breaker: TieBreaker) -> Self {
-        Honest { tie_breaker, ..Default::default() }
+        Honest {
+            tie_breaker,
+            ..Default::default()
+        }
     }
 }
 

@@ -42,7 +42,10 @@ enum StateEntry {
 impl NDeficit {
     /// Creates a new `i-Deficit` miner.
     pub fn new(i: usize) -> Self {
-        Self { i, ..Default::default() }
+        Self {
+            i,
+            ..Default::default()
+        }
     }
 
     fn clear_state(&mut self) {
