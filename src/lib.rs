@@ -6,9 +6,15 @@ Simulator for a game theory-based model of blockchain mining.
 // - Percent trait which turns valid integer ranges into ranges of percentage values
 //   (to make describing PowerValue ranges easier)
 //     - example: (0..=50).percent()
-// - Make Column::get_value working without the full blockchain to reduce memory
-//   load (remove blockchain from SimulationOutput)
 // - Create example code for each module/submodule
+// - Create a version of N-Deficit mining which forks the honest miner whenever
+//   possible (as Selfish mining does)
+// - For positive recurrent systems (simulations using positive recurrent
+//   strategies) the distribution of should approach a normal distribution
+// - Estimate the distribution of revenue for a single value of alpha and a
+//   set number of rounds
+// - try to use Average::Mean as the estimator whe possible to take advantage of
+//   the Central Limit Theorem when estimating attacker revenue
 
 // ## Issues:
 // - Windows NT kernel seems to be taking up a majority of the execution time

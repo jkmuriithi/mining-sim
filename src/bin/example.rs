@@ -6,8 +6,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
 
     let simulation = SimulationBuilder::new()
-        .rounds(10000)
-        .repeat_all(200)
+        .rounds(100000)
+        .repeat_all(20)
         .add_miner(Honest::new())
         .add_miner(NDeficit::new(1))
         .miner_power_iter(MinerId::from(2), (25..=50).map(|n| n as f64 / 100.0))

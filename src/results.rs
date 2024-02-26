@@ -396,7 +396,7 @@ impl Column {
     fn get_value(&self, output: &SimulationOutput) -> ColumnValue {
         match &self {
             Self::BlocksPublished => {
-                let num = output.blockchain.num_blocks() as f64;
+                let num = output.blocks_published as f64;
 
                 ColumnValue::BlocksPublished(num)
             }
@@ -406,7 +406,7 @@ impl Column {
                 ColumnValue::Constant(value)
             }
             Self::MinerStrategyName(miner_id) => {
-                let name = output.miners[miner_id.0 - 1].name();
+                let name = output.miners[miner_id].clone();
 
                 ColumnValue::MinerStrategyName(name)
             }
@@ -474,7 +474,7 @@ impl Column {
         let mut vls: Vec<_> = match &self {
             Self::BlocksPublished => data
                 .iter()
-                .map(|sim_output| sim_output.blockchain.num_blocks() as f64)
+                .map(|sim_output| sim_output.blocks_published as f64)
                 .collect(),
             Self::MinerRevenue(miner_id) => data
                 .iter()

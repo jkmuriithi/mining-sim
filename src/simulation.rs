@@ -251,10 +251,10 @@ struct Simulation {
 /// Contains the output data from a simulation.
 #[derive(Debug, Clone)]
 pub struct SimulationOutput {
-    pub blockchain: Blockchain,
     pub blocks_by_miner: HashMap<MinerId, Vec<BlockId>>,
+    pub blocks_published: usize,
     pub longest_chain: HashSet<BlockId>,
-    pub miners: Vec<Box<dyn Miner>>,
+    pub miners: HashMap<MinerId, String>,
     pub power_dist: PowerDistribution,
     pub rounds: usize,
 }
@@ -313,10 +313,13 @@ impl Simulation {
             }
         }
 
+        let blocks_published = blockchain.num_blocks();
         let longest_chain = HashSet::from_iter(blockchain.longest_chain());
+        let miners = miners.into_iter().map(|m| (m.id(), m.name())).collect();
+
         Ok(SimulationOutput {
-            blockchain,
             blocks_by_miner,
+            blocks_published,
             longest_chain,
             miners,
             power_dist,
