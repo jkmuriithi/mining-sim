@@ -191,8 +191,8 @@ impl PowerDistribution {
 /// ```
 pub trait Percent {
     /// Returns an iterator over percentage values. Can be used with
-    /// [`SimulationBuilder`](crate::simulation::SimulationBuilder)
-    /// to describe distributions of mining power.
+    /// [`SimulationBuilder`](crate::simulation::SimulationBuilder) to describe
+    /// distributions of mining power.
     fn percent(self) -> impl Iterator<Item = PowerValue>;
 }
 
