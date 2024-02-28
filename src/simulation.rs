@@ -22,6 +22,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct SimulationBuilder {
     blockchain: Option<Blockchain>,
+    include_blockchain: bool,
     power_dists: Vec<PowerDistribution>,
     repeat_all: Option<NonZeroUsize>,
     rounds: Option<NonZeroUsize>,
@@ -60,6 +61,23 @@ impl SimulationBuilder {
 
         self.miners.push(Box::new(miner));
         self.curr_miner_id.0 += 1;
+
+        self
+    }
+
+    /// Include each simulation's full [`Blockchain`] in its corresponding
+    /// [`SimulationOutput`].
+    ///
+    /// # Usage
+    /// This option greatly increases the memory usage of each simulation,
+    /// and will likely have a significant negative impact on performance.
+    /// Additionally, it has no impact on the analysis of simulation results
+    /// using [`ResultsBuilder`]. This option should only be invoked if
+    /// you intend to call the [`.data()`](ResultsBuilder::data) method of
+    /// [`ResultsBuilder`] and manually extract simulation blockchains for
+    /// customized analysis.
+    pub fn include_blockchain(mut self) -> Self {
+        self.include_blockchain = true;
 
         self
     }
@@ -144,6 +162,7 @@ impl SimulationBuilder {
 
         let SimulationBuilder {
             blockchain,
+            include_blockchain,
             miners,
             mut power_dists,
             repeat_all,
@@ -168,6 +187,7 @@ impl SimulationBuilder {
 
         Ok(SimulationGroup {
             blockchain,
+            include_blockchain,
             miners,
             power_dists,
             repeat_all,
@@ -195,6 +215,7 @@ mod tests {
 #[derive(Debug, Clone)]
 pub struct SimulationGroup {
     blockchain: Option<Blockchain>,
+    include_blockchain: bool,
     miners: Vec<Box<dyn Miner>>,
     power_dists: Vec<PowerDistribution>,
     repeat_all: NonZeroUsize,
@@ -207,10 +228,11 @@ impl SimulationGroup {
         SimulationBuilder::new()
     }
 
-    /// Runs all configured simulations in parallel using [`rayon`].
+    /// Runs all configured simulations.
     pub fn run_all(self) -> Result<ResultsBuilder, SimulationError> {
         let SimulationGroup {
             blockchain,
+            include_blockchain,
             miners,
             power_dists,
             repeat_all,
@@ -219,25 +241,35 @@ impl SimulationGroup {
 
         let blockchain = blockchain.unwrap_or_default();
 
-        let sims: Vec<_> = power_dists
-            .into_iter()
+        #[cfg(feature = "rayon")]
+        let outputs: Result<_, _> = power_dists
+            .into_par_iter()
             .map(|power_dist| Simulation {
                 blockchain: blockchain.clone(),
+                include_blockchain,
                 miners: miners.clone(),
                 power_dist,
                 rounds: rounds.get(),
             })
             // Clone each simulation repeat_all times
             .flat_map(|sim| vec![sim; repeat_all.get()])
+            .map(|sim| sim.run())
             .collect();
 
-        #[cfg(feature = "rayon")]
-        let outputs: Result<_, _> =
-            sims.into_par_iter().map(|sim| sim.run()).collect();
-
         #[cfg(not(feature = "rayon"))]
-        let outputs: Result<_, _> =
-            sims.into_iter().map(|sim| sim.run()).collect();
+        let outputs: Result<_, _> = power_dists
+            .into_iter()
+            .map(|power_dist| Simulation {
+                blockchain: blockchain.clone(),
+                include_blockchain,
+                miners: miners.clone(),
+                power_dist,
+                rounds: rounds.get(),
+            })
+            // Clone each simulation repeat_all times
+            .flat_map(|sim| vec![sim; repeat_all.get()])
+            .map(|sim| sim.run())
+            .collect();
 
         Ok(ResultsBuilder::new(outputs?, repeat_all))
     }
@@ -251,6 +283,7 @@ impl SimulationGroup {
 #[derive(Debug, Clone)]
 struct Simulation {
     blockchain: Blockchain,
+    include_blockchain: bool,
     miners: Vec<Box<dyn Miner>>,
     power_dist: PowerDistribution,
     rounds: usize,
@@ -259,6 +292,7 @@ struct Simulation {
 /// Contains the output data from a simulation.
 #[derive(Debug, Clone)]
 pub struct SimulationOutput {
+    pub blockchain: Option<Blockchain>,
     pub blocks_by_miner: HashMap<MinerId, Vec<BlockId>>,
     pub blocks_published: usize,
     pub longest_chain: HashSet<BlockId>,
@@ -282,6 +316,7 @@ impl Simulation {
     fn run(self) -> Result<SimulationOutput, SimulationError> {
         let Simulation {
             mut blockchain,
+            include_blockchain,
             mut miners,
             power_dist,
             rounds,
@@ -330,6 +365,7 @@ impl Simulation {
         let miners = miners.into_iter().map(|m| (m.id(), m.name())).collect();
 
         Ok(SimulationOutput {
+            blockchain: include_blockchain.then_some(blockchain),
             blocks_by_miner,
             blocks_published,
             longest_chain,

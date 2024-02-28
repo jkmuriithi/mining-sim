@@ -11,6 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_miner(Honest::new())
         .add_miner(NDeficit::new(1))
         .miner_power_iter(MinerId::from(2), (25..=50).percent())
+        .include_blockchain()
         .build()?;
 
     let results_builder = simulation.run_all()?;

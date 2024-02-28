@@ -1,5 +1,5 @@
 /*!
-Re-export of common values and datatypes.
+Re-export of common values and datatypes
 
 Must be imported manually.
 
