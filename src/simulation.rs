@@ -8,6 +8,7 @@ use std::{
 };
 
 use rand::distributions::{Distribution, WeightedError, WeightedIndex};
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
 use crate::{
@@ -230,8 +231,13 @@ impl SimulationGroup {
             .flat_map(|sim| vec![sim; repeat_all.get()])
             .collect();
 
+        #[cfg(feature = "rayon")]
         let outputs: Result<_, _> =
             sims.into_par_iter().map(|sim| sim.run()).collect();
+
+        #[cfg(not(feature = "rayon"))]
+        let outputs: Result<_, _> =
+            sims.into_iter().map(|sim| sim.run()).collect();
 
         Ok(ResultsBuilder::new(outputs?, repeat_all))
     }

@@ -20,6 +20,7 @@ pub struct BlockData {
     pub block: Block,
     /// Length of the path from `block` to the genesis block of the blockchain.
     pub height: usize,
+    #[cfg(feature = "block_children")]
     /// IDs of all blocks which point to `block` as their parent.
     pub children: Vec<BlockId>,
 }
@@ -54,6 +55,7 @@ impl Blockchain {
                     txns: vec![],
                 },
                 height: 0,
+                #[cfg(feature = "block_children")]
                 children: vec![],
             },
         )]);
@@ -170,6 +172,7 @@ impl Blockchain {
             });
         }
 
+        #[cfg(feature = "block_children")]
         parent_data.children.push(block.id);
 
         // Insert block
@@ -188,6 +191,7 @@ impl Blockchain {
             BlockData {
                 block,
                 height,
+                #[cfg(feature = "block_children")]
                 children: vec![],
             },
         );

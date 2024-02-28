@@ -31,6 +31,7 @@ println!("{}", results);
 
 use std::{collections::BTreeSet, fmt::Display, num::NonZeroUsize};
 
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
 use crate::{
@@ -242,21 +243,43 @@ impl ResultsBuilder {
             Average::None => data
                 .iter()
                 .map(|sim_output| {
-                    columns
-                        .par_iter()
-                        .map(|col_type| col_type.get_value(sim_output))
-                        .collect()
+                    #[cfg(feature = "rayon")]
+                    {
+                        columns
+                            .par_iter()
+                            .map(|col_type| col_type.get_value(sim_output))
+                            .collect()
+                    }
+                    #[cfg(not(feature = "rayon"))]
+                    {
+                        columns
+                            .iter()
+                            .map(|col_type| col_type.get_value(sim_output))
+                            .collect()
+                    }
                 })
                 .collect(),
             _ => data
                 .chunks(repeated.get())
                 .map(|sim_outputs| {
-                    columns
-                        .par_iter()
-                        .map(|col_type| {
-                            col_type.get_average_value(average, sim_outputs)
-                        })
-                        .collect()
+                    #[cfg(feature = "rayon")]
+                    {
+                        columns
+                            .par_iter()
+                            .map(|col_type| {
+                                col_type.get_average_value(average, sim_outputs)
+                            })
+                            .collect()
+                    }
+                    #[cfg(not(feature = "rayon"))]
+                    {
+                        columns
+                            .iter()
+                            .map(|col_type| {
+                                col_type.get_average_value(average, sim_outputs)
+                            })
+                            .collect()
+                    }
                 })
                 .collect(),
         };

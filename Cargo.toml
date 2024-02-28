@@ -10,7 +10,7 @@ description = "Simulator for a game theory-based model of blockchain mining"
 [dependencies]
 dyn-clone = "1.0.16"
 rand = "0.8.5"
-rayon = "1.8.1"
+rayon = { version = "1.8.1", optional = true}
 thiserror = "1.0.56"
 
 [profile.dev]
@@ -18,3 +18,8 @@ opt-level = 1
 
 [profile.dev.package.'*']
 opt-level = 3
+
+[features]
+default = ["rayon"]
+block_children = []
+rayon = ["dep:rayon"]
