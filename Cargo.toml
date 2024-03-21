@@ -1,5 +1,8 @@
-[package]
-name = "mining-sim"
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
 authors = ["Jude Muriithi <muriithi@princeton.edu>"]
 version = "0.1.0"
 edition = "2021"
@@ -7,19 +10,8 @@ readme = "README.md"
 repository = "https://github.com/jkmuriithi/mining-sim"
 description = "Simulator for a game theory-based model of blockchain mining"
 
-[dependencies]
-dyn-clone = "1.0"
-rand = "0.8"
-rayon = { version = "1.9", optional = true}
-thiserror = "1.0"
-
 [profile.dev]
 opt-level = 1
 
 [profile.dev.package.'*']
 opt-level = 3
-
-[features]
-default = ["rayon"]
-block-children = []
-rayon = ["dep:rayon"]

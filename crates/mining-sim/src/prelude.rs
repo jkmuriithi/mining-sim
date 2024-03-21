@@ -17,7 +17,8 @@ pub use blockchain::{Block, BlockId, BlockPublishingError, Blockchain};
 
 pub use miner::{
     honest::Honest, honestforking::HonestForking, ndeficit::NDeficit,
-    noop::Noop, selfish::Selfish, Action, Miner, MinerId,
+    ndeficiteager::NDeficitEager, noop::Noop, selfish::Selfish, Action, Miner,
+    MinerId,
 };
 
 pub use power_dist::{

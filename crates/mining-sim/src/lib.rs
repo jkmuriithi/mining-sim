@@ -2,6 +2,7 @@
 Simulator for a game theory-based model of blockchain mining.
 
 # Features
+By default, `rayon` is enabled.
 - `rayon`: Enables the parallelization of simulation runs using
   [`rayon`](https://docs.rs/rayon/1.9), typically resulting in a signficant
   performance boost.
@@ -10,7 +11,6 @@ Simulator for a game theory-based model of blockchain mining.
   [`Blockchain`](blockchain::Blockchain) via
   [`BlockData::children`](blockchain::BlockData::children). This greatly
   increases memory usage, and can affect runtime performance.
-- By default, `rayon` is enabled.
 */
 
 // ## Todo:

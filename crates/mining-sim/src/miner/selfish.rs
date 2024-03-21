@@ -67,12 +67,10 @@ impl Miner for Selfish {
                 };
 
                 let lc = chain.tip();
-                let fork = lc
-                    .iter()
-                    .any(|b| chain[b].block.miner_id == self.id)
-                    && lc.iter().any(|b| chain[b].block.miner_id != self.id);
-
-                if self.hidden_blocks.is_empty() && fork {
+                if self.hidden_blocks.is_empty()
+                    && lc.iter().any(|b| chain[b].block.miner_id == self.id)
+                    && lc.iter().any(|b| chain[b].block.miner_id != self.id)
+                {
                     Action::Publish(block)
                 } else {
                     self.hidden_blocks.push_back(block);

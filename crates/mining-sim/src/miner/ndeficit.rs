@@ -230,32 +230,6 @@ impl Miner for NDeficit {
         chain: &Blockchain,
         block_mined: Option<BlockId>,
     ) -> super::Action {
-        // Handle selfish mining fork case
-        // FIXME: Forks are never encountered when up against an honest miner,
-        // may need to implement "aggressive" strategy
-        if self.our_blocks.is_empty() {
-            let lc = chain.tip();
-
-            let ours_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id == self.id);
-            let othr_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id != self.id);
-
-            if let (Some(parent_id), Some(_), Some(block_id)) =
-                (ours_at_lc, othr_at_lc, block_mined)
-            {
-                println!("fork case");
-                self.capitulate(block_id);
-
-                return Action::Publish(Block {
-                    id: block_id,
-                    miner_id: self.id,
-                    parent_id: Some(*parent_id),
-                    txns: vec![],
-                });
-            }
-        }
-
         self.update_state(chain, block_mined.as_ref());
         self.map_state()
     }

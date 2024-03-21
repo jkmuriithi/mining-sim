@@ -67,6 +67,7 @@ use crate::blockchain::{Block, BlockId, Blockchain};
 pub mod honest;
 pub mod honestforking;
 pub mod ndeficit;
+pub mod ndeficiteager;
 pub mod noop;
 pub mod selfish;
 
