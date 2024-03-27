@@ -68,6 +68,7 @@ pub mod honest;
 pub mod honestforking;
 pub mod ndeficit;
 pub mod ndeficiteager;
+pub mod noise;
 pub mod noop;
 pub mod selfish;
 

@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let simulation = SimulationBuilder::new()
         .rounds(1000)
-        .repeat_all(50)
+        .repeat_all(500)
         .add_miner(Honest::with_tie_breaker(TieBreaker::FavorMinerProb(
             MinerId::from(2),
             GAMMA,
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .build();
 
     println!("{}", results);
-    // println!("Elapsed time: {:.4} secs", start.elapsed().as_secs_f64());
 
+    // println!("Elapsed time: {:.4} secs", start.elapsed().as_secs_f64());
     Ok(())
 }

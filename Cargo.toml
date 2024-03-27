@@ -1,5 +1,8 @@
 [workspace]
-members = ["crates/*"]
+members = [
+  "mining-sim",
+  "research"
+]
 resolver = "2"
 
 [workspace.package]

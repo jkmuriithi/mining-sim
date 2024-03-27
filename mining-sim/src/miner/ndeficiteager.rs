@@ -145,8 +145,7 @@ impl NDeficitEager {
             [] => Action::Wait,
             [A(1)] => Action::Wait,
             [A(2..), ..] => {
-                // Condition changed from N-Deficit
-                if self.our_blocks.len() >= self.honest_blocks.len() {
+                if self.our_blocks.len() == self.honest_blocks.len() + 1 {
                     self.publish_all()
                 } else {
                     Action::Wait
@@ -174,9 +173,9 @@ impl NDeficitEager {
                 let honest = self.honest_blocks.len();
 
                 // Conditions changed from N-Deficit
-                if ours >= honest {
+                if ours == honest + 1 {
                     self.publish_all()
-                } else if ours > honest - x {
+                } else if ours - 1 == honest - x + 1 {
                     self.our_blocks.pop_front();
                     let path = self.block_path_to(self.honest_blocks[x - 1]);
                     self.capitulate(path.last().unwrap().id);
@@ -209,7 +208,7 @@ impl NDeficitEager {
 
 impl Miner for NDeficitEager {
     fn name(&self) -> String {
-        format!("{}-Deficit", self.i)
+        format!("{}-Deficit Eager", self.i)
     }
 
     fn id(&self) -> MinerId {
@@ -226,33 +225,36 @@ impl Miner for NDeficitEager {
         chain: &Blockchain,
         block_mined: Option<BlockId>,
     ) -> super::Action {
+        let lc = chain.tip();
+
+        let ours_at_lc =
+            lc.iter().find(|&b| chain[b].block.miner_id == self.id);
+        let othr_at_lc =
+            lc.iter().find(|&b| chain[b].block.miner_id != self.id);
+
         // Handle selfish mining fork case
-        // FIXME: Forks are never encountered when up against an honest miner,
-        // may need to implement "aggressive" strategy
-        if self.our_blocks.is_empty() {
-            let lc = chain.tip();
+        let fork = self.our_blocks.is_empty()
+            && block_mined.is_some()
+            && ours_at_lc.is_some()
+            && othr_at_lc.is_some();
 
-            let ours_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id == self.id);
-            let othr_at_lc =
-                lc.iter().find(|&&b| chain[b].block.miner_id != self.id);
+        if fork {
+            println!("fork case");
 
-            if let (Some(parent_id), Some(_), Some(block_id)) =
-                (ours_at_lc, othr_at_lc, block_mined)
-            {
-                println!("fork case");
-                self.capitulate(block_id);
+            let block_id = block_mined.unwrap();
+            let parent_id = ours_at_lc.unwrap();
 
-                return Action::Publish(Block {
-                    id: block_id,
-                    miner_id: self.id,
-                    parent_id: Some(*parent_id),
-                    txns: vec![],
-                });
-            }
+            self.capitulate(block_id);
+
+            Action::Publish(Block {
+                id: block_id,
+                miner_id: self.id,
+                parent_id: Some(*parent_id),
+                txns: vec![],
+            })
+        } else {
+            self.update_state(chain, block_mined.as_ref());
+            self.map_state()
         }
-
-        self.update_state(chain, block_mined.as_ref());
-        self.map_state()
     }
 }
