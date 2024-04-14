@@ -1,6 +1,22 @@
 //! Implementation of the N-Deficit family of mining strategies
 //! which publishes to the chain whenever possible
 
+/*
+To be more clear:
+- whenever this strategy has a lead over the public/honest chain, it should
+always publish a block to fork any new block honest block published chain.
+- since the honest strategy can publish a block on our fork that has a greater
+ID than the head of our private chain, we should always just capitulate to our
+last published block
+    - [A(x), ..] -> [A(x - 1), ..] (or something like that)
+    - this occurs with the *exception* of the fork case
+- (from 445 notes) "during time step t, if another miner announces a block of
+height h, and you also have a block of height h, announce it"
+- ^ need to reconcile this idea with Anthony's formulation of N-Deficit mining,
+though it might not be optimal according to his criteria
+- Goal: reduce the amount of
+*/
+
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
@@ -58,7 +74,7 @@ impl NDeficitEager {
     fn update_state(
         &mut self,
         chain: &Blockchain,
-        block_mined: Option<&BlockId>,
+        block_mined: Option<BlockId>,
     ) {
         let tip = self.tie_breaker.choose(chain);
         let cap_height = chain[self.capitulation].height;
@@ -101,8 +117,8 @@ impl NDeficitEager {
         }
 
         if let Some(block_id) = block_mined {
-            self.seen.insert(*block_id);
-            self.our_blocks.push_back(*block_id);
+            self.seen.insert(block_id);
+            self.our_blocks.push_back(block_id);
 
             match self.state.last_mut() {
                 Some(StateEntry::A(count)) => *count += 1,
@@ -137,6 +153,20 @@ impl NDeficitEager {
         Action::PublishSet(path)
     }
 
+    /// Assumes we start from a state [A(x), ...]
+    fn publish_one(&mut self) -> Action {
+        let (first_a, _) = self
+            .state
+            .iter()
+            .enumerate()
+            .find(|(_, elem)| matches!(elem, StateEntry::A(_)))
+            .expect("attacker has blocks in state");
+
+        let path = self.block_path_to(self.capitulation);
+        self.capitulate(path.last().unwrap().id);
+        Action::PublishSet(path)
+    }
+
     fn map_state(&mut self) -> Action {
         use StateEntry::*;
 
@@ -145,10 +175,15 @@ impl NDeficitEager {
             [] => Action::Wait,
             [A(1)] => Action::Wait,
             [A(2..), ..] => {
-                if self.our_blocks.len() == self.honest_blocks.len() + 1 {
+                let ours = self.our_blocks.len();
+                let honest = self.honest_blocks.len();
+
+                if ours == honest + 1 {
                     self.publish_all()
+                } else if honest > 0 {
+                    self.publish_one()
                 } else {
-                    Action::Wait
+                    unreachable!("we should maintain the lead")
                 }
             }
             [A(1), H(x)] => {
@@ -175,7 +210,7 @@ impl NDeficitEager {
                 // Conditions changed from N-Deficit
                 if ours == honest + 1 {
                     self.publish_all()
-                } else if ours - 1 == honest - x + 1 {
+                } else if ours - 1 == honest - x + 1 || ours - 1 == honest - x {
                     self.our_blocks.pop_front();
                     let path = self.block_path_to(self.honest_blocks[x - 1]);
                     self.capitulate(path.last().unwrap().id);
@@ -226,19 +261,17 @@ impl Miner for NDeficitEager {
         block_mined: Option<BlockId>,
     ) -> super::Action {
         let lc = chain.tip();
-
         let ours_at_lc =
             lc.iter().find(|&b| chain[b].block.miner_id == self.id);
         let othr_at_lc =
             lc.iter().find(|&b| chain[b].block.miner_id != self.id);
 
         // Handle selfish mining fork case
-        let fork = self.our_blocks.is_empty()
+        if self.our_blocks.is_empty()
             && block_mined.is_some()
             && ours_at_lc.is_some()
-            && othr_at_lc.is_some();
-
-        if fork {
+            && othr_at_lc.is_some()
+        {
             println!("fork case");
 
             let block_id = block_mined.unwrap();
@@ -253,7 +286,7 @@ impl Miner for NDeficitEager {
                 txns: vec![],
             })
         } else {
-            self.update_state(chain, block_mined.as_ref());
+            self.update_state(chain, block_mined);
             self.map_state()
         }
     }

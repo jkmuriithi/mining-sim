@@ -1,5 +1,5 @@
 /*!
-Building/running simulations and analyzing the resulting data
+Building simulations, running them, and analyzing the resulting data
 */
 
 use std::{

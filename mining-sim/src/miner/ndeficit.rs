@@ -64,7 +64,7 @@ impl NDeficit {
     fn update_state(
         &mut self,
         chain: &Blockchain,
-        block_mined: Option<&BlockId>,
+        block_mined: Option<BlockId>,
     ) {
         let tip = self.tie_breaker.choose(chain);
         let cap_height = chain[self.capitulation].height;
@@ -107,8 +107,8 @@ impl NDeficit {
         }
 
         if let Some(block_id) = block_mined {
-            self.seen.insert(*block_id);
-            self.our_blocks.push_back(*block_id);
+            self.seen.insert(block_id);
+            self.our_blocks.push_back(block_id);
 
             match self.state.last_mut() {
                 Some(StateEntry::A(count)) => *count += 1,
@@ -230,7 +230,7 @@ impl Miner for NDeficit {
         chain: &Blockchain,
         block_mined: Option<BlockId>,
     ) -> super::Action {
-        self.update_state(chain, block_mined.as_ref());
+        self.update_state(chain, block_mined);
         self.map_state()
     }
 }
