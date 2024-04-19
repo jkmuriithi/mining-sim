@@ -1,6 +1,6 @@
 # Blockchain Mining Strategy Simulator
 
-A library for simulating strategic blockchain mining outcomes based on game theoretical models. 
+A library for simulating strategic blockchain mining outcomes based on game theoretical models. Library code can be found in the `mining-sim` crate contained within this repository's workspace. 
 
 ## Built With
 - [Rust (stable)](https://www.rust-lang.org/)
@@ -19,8 +19,8 @@ Randomness](https://arxiv.org/abs/2107.04069)
 - Implement known strategies
   - ~~Honest~~
   - ~~Selfish Mining~~
-  - Nothing At Stake
-  - N-Deficit
+  - ~~Nothing At Stake~~
+  - ~~N-Deficit~~
 
 ## Building Locally
 Making sure you have a working stable Rust install (with Cargo support), you
