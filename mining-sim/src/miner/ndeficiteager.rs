@@ -155,12 +155,12 @@ impl NDeficitEager {
 
     /// Assumes we start from a state [A(x), ...]
     fn publish_one(&mut self) -> Action {
-        let (first_a, _) = self
-            .state
-            .iter()
-            .enumerate()
-            .find(|(_, elem)| matches!(elem, StateEntry::A(_)))
-            .expect("attacker has blocks in state");
+        // let (first_a, _) = self
+        //     .state
+        //     .iter()
+        //     .enumerate()
+        //     .find(|(_, elem)| matches!(elem, StateEntry::A(_)))
+        //     .expect("attacker has blocks in state");
 
         let path = self.block_path_to(self.capitulation);
         self.capitulate(path.last().unwrap().id);

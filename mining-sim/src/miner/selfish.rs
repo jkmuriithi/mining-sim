@@ -66,6 +66,7 @@ impl Miner for Selfish {
                     txns: vec![],
                 };
 
+                // Handle forks in the longest chain
                 let lc = chain.tip();
                 if self.hidden_blocks.is_empty()
                     && lc.iter().any(|b| chain[b].block.miner_id == self.id)
